@@ -678,10 +678,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all chats from connected WhatsApp device (sorted by latest activity)
   app.get("/api/chats", async (req, res) => {
     try {
-      // Check if WhatsApp service is ready first
-      const sessionInfo = await whatsappService.getSessionInfo();
-      if (!sessionInfo) {
-        return res.status(503).json({ error: "WhatsApp not connected" });
+      // Check if any session is connected
+      const sessions = sessionManager.getAllSessionsInfo();
+      const connectedSession = sessions.find(s => s.status === 'connected');
+      
+      if (!connectedSession) {
+        return res.status(503).json({ error: "No WhatsApp accounts connected" });
       }
 
       // Disable caching for chats to ensure fresh data
@@ -689,8 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       
-      const chats = await whatsappService.getChats();
-      // Chats are already sorted by latest activity in the service layer
+      const chats = await sessionManager.getChats(connectedSession.sessionId);
       res.json(chats);
     } catch (error: any) {
       console.error("Get chats error:", error);
@@ -771,10 +772,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get contacts with pagination support
   app.get("/api/contacts", async (req, res) => {
     try {
-      // Check if WhatsApp service is ready first
-      const sessionInfo = await whatsappService.getSessionInfo();
-      if (!sessionInfo) {
-        return res.status(503).json({ error: "WhatsApp not connected" });
+      // Check if any session is connected
+      const sessions = sessionManager.getAllSessionsInfo();
+      const connectedSession = sessions.find(s => s.status === 'connected');
+      
+      if (!connectedSession) {
+        return res.status(503).json({ error: "No WhatsApp accounts connected" });
       }
 
       // Parse pagination parameters
@@ -785,7 +788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`📄 Loading contacts - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
 
-      const contacts = await whatsappService.getContacts();
+      const contacts = await sessionManager.getContacts(connectedSession.sessionId);
       
       // Filter out invalid phone numbers
       const validContacts = contacts.filter(contact => {
@@ -835,10 +838,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all groups from connected WhatsApp device
   app.get("/api/groups", async (req, res) => {
     try {
-      // Check if WhatsApp service is ready first
-      const sessionInfo = await whatsappService.getSessionInfo();
-      if (!sessionInfo) {
-        return res.status(503).json({ error: "WhatsApp not connected" });
+      // Check if any session is connected
+      const sessions = sessionManager.getAllSessionsInfo();
+      const connectedSession = sessions.find(s => s.status === 'connected');
+      
+      if (!connectedSession) {
+        return res.status(503).json({ error: "No WhatsApp accounts connected" });
       }
 
       // Disable caching for groups to ensure fresh data
@@ -846,7 +851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       
-      const groups = await whatsappService.getGroups();
+      const groups = await sessionManager.getGroups(connectedSession.sessionId);
       res.json(groups);
     } catch (error: any) {
       console.error("Get groups error:", error);
