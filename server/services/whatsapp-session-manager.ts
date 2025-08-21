@@ -477,8 +477,17 @@ export class WhatsAppSessionManager {
     this.sessions.delete(sessionId);
     this.messageCache.delete(sessionId);
 
-    // Session is already removed from memory (which is what getAllSessionsInfo() uses)
-    // No need to clear database storage since we read from memory
+    // Also destroy legacy service to prevent it from reappearing in session list
+    try {
+      const legacyService = (global as any).whatsappService;
+      if (legacyService && legacyService.logout) {
+        console.log('🗑️ Also removing legacy session to prevent reappearance...');
+        await legacyService.logout();
+        console.log('✅ Legacy session also removed');
+      }
+    } catch (error: any) {
+      console.warn('Error removing legacy session during cleanup:', error.message);
+    }
 
     this.broadcastToClients('account_removed', { sessionId });
     this.broadcastSessionUpdate();
