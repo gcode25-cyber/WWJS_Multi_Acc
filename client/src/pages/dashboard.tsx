@@ -232,7 +232,7 @@ export default function Dashboard() {
     refetchInterval: false, // Disable automatic refresh - load only when needed
   });
 
-  // ⚡ Fetch WhatsApp accounts for multi-account support - MOVED UP
+  // ⚡ Fetch WhatsApp accounts for multi-account support - ALWAYS ENABLED for session detection
   const { data: whatsappAccounts = [], isLoading: accountsLoading } = useQuery<WhatsAppAccount[]>({
     queryKey: ['/api/accounts'],
     queryFn: async () => {
@@ -245,10 +245,10 @@ export default function Dashboard() {
       const data = await response.json();
       return data.accounts || [];
     },
-    enabled: selectedModule === 'account',
+    enabled: true, // Always enabled since we need currentSessionId for all modules
     staleTime: 30000, // Fresh for 30 seconds
     gcTime: 5 * 60 * 1000, // Cache for 5 minutes
-    refetchInterval: selectedModule === 'account' ? 10000 : false, // Refresh every 10 seconds when viewing accounts
+    refetchInterval: 10000, // Always refresh every 10 seconds for session status updates
   });
 
   // State for chats pagination

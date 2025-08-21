@@ -72,6 +72,9 @@ export default function ChatPage() {
       const data = await response.json();
       return data.accounts || [];
     },
+    enabled: true,
+    staleTime: 30000,
+    refetchInterval: 10000, // Keep session status updated
   });
 
   // Get the currently connected account sessionId
