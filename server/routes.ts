@@ -772,7 +772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Parse pagination parameters
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20; // Default 20 chats per page
+      const limit = parseInt(req.query.limit as string) || 1000; // Default to show many more chats
       const search = (req.query.search as string) || '';
       const offset = (page - 1) * limit;
 
@@ -902,7 +902,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Parse pagination parameters
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50; // Default 50 contacts per page
+      const limit = parseInt(req.query.limit as string) || 1000; // Default to show many more contacts
       const search = (req.query.search as string) || '';
       const offset = (page - 1) * limit;
 

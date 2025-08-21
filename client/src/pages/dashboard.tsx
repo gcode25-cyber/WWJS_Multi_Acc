@@ -271,7 +271,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const params = new URLSearchParams({
         page: chatsPage.toString(),
-        limit: '20'
+        limit: '1000'
       });
       if (chatsSearch.trim()) {
         params.append('search', chatsSearch.trim());
@@ -325,7 +325,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const params = new URLSearchParams({
         page: contactsPage.toString(),
-        limit: '50'
+        limit: '1000'
       });
       if (contactsSearch.trim()) {
         params.append('search', contactsSearch.trim());
@@ -445,7 +445,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const params = new URLSearchParams({
         page: groupsPage.toString(),
-        limit: '20'
+        limit: '1000'
       });
       if (groupsSearch.trim()) {
         params.append('search', groupsSearch.trim());
