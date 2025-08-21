@@ -1425,10 +1425,10 @@ export default function Dashboard() {
       {/* 📱 Mobile-First Responsive Left Sidebar - Features */}
       <div className="w-full xl:w-64 lg:w-60 md:w-56 bg-white dark:bg-gray-800 border-b xl:border-b-0 xl:border-r border-gray-200 dark:border-gray-700 flex flex-col order-1 xl:order-none h-auto xl:h-full shrink-0">
         {/* 📱 Responsive Features List */}
-        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 flex-1">
-          {/* 📱 WhatsApp Feature - Expanded */}
+        <div className="px-2 sm:px-3 py-2 sm:py-4 space-y-1 sm:space-y-2">
+          {/* 📱 WhatsApp Feature - Touch Friendly */}
           <div 
-            className={`flex items-center p-4 sm:p-6 rounded-xl cursor-pointer transition-colors min-h-[60px] ${
+            className={`flex items-center p-2 sm:p-3 rounded-lg cursor-pointer transition-colors min-h-[44px] ${
               selectedFeature === 'whatsapp' 
                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
                 : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -1436,15 +1436,15 @@ export default function Dashboard() {
             onClick={() => setSelectedFeature('whatsapp')}
             data-testid="button-whatsapp"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-100 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0">
-              <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
             </div>
-            <span className="font-semibold ml-3 sm:ml-4 text-base sm:text-lg">WhatsApp</span>
+            <span className="font-medium ml-2 sm:ml-3 text-sm sm:text-base">WhatsApp</span>
           </div>
 
-          {/* 📱 RCS Feature - Expanded */}
+          {/* 📱 RCS Feature - Touch Friendly */}
           <div 
-            className={`flex items-center p-4 sm:p-6 rounded-xl cursor-pointer transition-colors min-h-[60px] ${
+            className={`flex items-center p-2 sm:p-3 rounded-lg cursor-pointer transition-colors min-h-[44px] ${
               selectedFeature === 'rcs' 
                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
                 : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -1452,10 +1452,11 @@ export default function Dashboard() {
             onClick={() => setSelectedFeature('rcs')}
             data-testid="button-rcs"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
-              <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
+              <Smartphone className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600 dark:text-purple-400" />
             </div>
-            <span className="font-semibold ml-3 sm:ml-4 text-base sm:text-lg">RCS</span>
+            <span className="font-medium ml-2 sm:ml-3 text-sm sm:text-base hidden sm:inline">RCS</span>
+            <span className="font-medium ml-2 sm:ml-3 text-sm sm:text-base sm:hidden">RCS</span>
           </div>
         </div>
         
