@@ -958,15 +958,14 @@ export class WhatsAppService {
           loginTime: storedSession.loginTime
         };
         
-        // If we have session files and stored session, mark as ready
-        const fs = await import('fs');
-        const path = await import('path');
-        const sessionPath = path.resolve('./.wwebjs_auth');
-        
-        if (fs.existsSync(sessionPath)) {
+        // Only mark as ready if client is actually connected, not just based on file existence
+        if (this.client && this.client.info && this.client.info.wid) {
           this.isReady = true;
-          console.log('✅ Session restored from storage with file verification');
+          console.log('✅ Session restored from storage with active client verification');
           return this.sessionInfo;
+        } else {
+          console.log('⚠️ Session files exist but client not connected - requiring fresh authentication');
+          this.isReady = false;
         }
       }
     } catch (error: any) {
@@ -1438,11 +1437,14 @@ export class WhatsAppService {
   // Helper method to get chats without broadcasting (prevents recursion)
   private async getChatsWithoutBroadcast(): Promise<any[]> {
     if (!this.client || !this.isReady) {
+      console.log('⚠️ WhatsApp client not ready - isReady:', this.isReady, 'client exists:', !!this.client);
       throw new Error('WhatsApp client is not ready');
     }
 
-    // Check if we have session info or client is authenticated
+    // More thorough check for client connection state
     if (!this.sessionInfo && (!this.client.info || !this.client.info.wid)) {
+      console.log('⚠️ WhatsApp client not fully connected - missing wid info');
+      this.isReady = false;
       throw new Error('WhatsApp client not fully connected');
     }
 
@@ -1492,6 +1494,16 @@ export class WhatsAppService {
     } catch (error: any) {
       console.error('❌ Failed to fetch chats:', error.message);
       console.log('Get chats error:', error);
+      
+      // If connection error, mark as not ready
+      if (error.message.includes('Session closed') || 
+          error.message.includes('Evaluation failed') ||
+          error.message.includes('Protocol error') ||
+          error.message.includes('Timeout fetching chats')) {
+        console.log('🔌 Connection lost during chats fetch - updating status');
+        this.isReady = false;
+      }
+      
       throw error;
     }
   }

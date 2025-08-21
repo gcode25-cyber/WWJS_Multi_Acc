@@ -81,14 +81,19 @@ export class WhatsAppSessionManager {
             try {
               const storedAccounts = await storage.getStoredAccounts();
               const matchingAccount = storedAccounts.find(acc => acc.sessionId === dir);
-              if (matchingAccount) {
+              if (matchingAccount && matchingAccount.name && matchingAccount.phone) {
                 session.info.name = matchingAccount.name;
                 session.info.number = matchingAccount.phone;
                 session.info.loginTime = matchingAccount.loginTime?.toISOString() || '';
                 console.log(`💾 Restored session data for ${dir}: ${matchingAccount.name} (${matchingAccount.phone})`);
+              } else {
+                // Remove sessions that don't have valid stored data
+                this.sessions.delete(dir);
+                console.log(`🗑️ Removing session ${dir} - no valid stored account data`);
               }
             } catch (error) {
-              console.log(`No stored account data for ${dir}`);
+              console.log(`No stored account data for ${dir} - removing session`);
+              this.sessions.delete(dir);
             }
           }
         }
@@ -97,12 +102,29 @@ export class WhatsAppSessionManager {
       // Also restore from database 
       const storedSessions = await storage.getActiveSessions();
       for (const session of storedSessions) {
-        if (!this.sessions.has(session.userId)) {
-          await this.createSession(session.userId, false);
+        if (!this.sessions.has(session.userId) && session.userName && session.userId) {
+          // Only restore sessions that have valid name and user ID
+          const newSession = await this.createSession(session.userId, false);
+          newSession.info.name = session.userName;
+          newSession.info.number = session.userId;
+          newSession.info.loginTime = session.loginTime?.toISOString() || '';
+          newSession.info.status = 'disconnected';
+          console.log(`💾 Restored session from DB: ${session.userName} (${session.userId})`);
         }
       }
 
-      console.log(`✅ Restored ${this.sessions.size} WhatsApp sessions (ready for relogin)`);
+      // Filter out and remove any sessions without proper names/numbers
+      const validSessions = Array.from(this.sessions.entries()).filter(([id, session]) => {
+        return session.info.name && session.info.number && session.info.name !== 'Unknown Account';
+      });
+      
+      // Keep only valid sessions
+      this.sessions.clear();
+      for (const [id, session] of validSessions) {
+        this.sessions.set(id, session);
+      }
+      
+      console.log(`✅ Restored ${this.sessions.size} valid WhatsApp sessions (ready for relogin)`);
       
       // Broadcast the session update to show all restored sessions
       this.broadcastSessionUpdate();
@@ -561,23 +583,22 @@ export class WhatsAppSessionManager {
   }
 
   public getAllSessionsInfo(): WhatsAppSessionInfo[] {
-    // Get all sessions - be more lenient to show restored sessions even without complete data
+    // Get all sessions - only show sessions with valid data to prevent "Unknown Account" entries
     const sessionInfos = Array.from(this.sessions.values())
       .map(s => s.info)
       .filter(info => {
-        // Include connected sessions with valid name and number
-        if (info.name && info.number && info.status === 'connected') return true;
+        // Only include sessions that have valid name and number
+        if (!info.name || !info.number || info.name === 'Unknown Account') return false;
+        
+        // Include connected sessions with valid data
+        if (info.status === 'connected') return true;
         
         // Include sessions that are actively waiting for QR authentication  
         if (info.status === 'qr_required' || info.status === 'connecting') return true;
         
         // Include disconnected sessions that have valid name and number (for relogin)
-        if (info.status === 'disconnected' && info.name && info.number) return true;
+        if (info.status === 'disconnected') return true;
         
-        // Include all restored sessions from file directories (even without name/number initially)
-        if (info.sessionId && (info.sessionId.includes('session_') || info.sessionId === 'main_session')) return true;
-        
-        // Filter out only completely empty sessions
         return false;
       });
     
@@ -675,7 +696,13 @@ export class WhatsAppSessionManager {
 
   public async getChats(sessionId?: string): Promise<any[]> {
     const session = sessionId ? this.sessions.get(sessionId) : this.getPrimarySession();
-    if (!session || !session.isReady) {
+    if (!session || !session.isReady || !session.client) {
+      // Check legacy WhatsApp service as fallback
+      const legacyService = (global as any).whatsappService;
+      if (legacyService && legacyService.isReady && legacyService.client) {
+        console.log('📱 Using legacy WhatsApp service for chats');
+        return await legacyService.getChats();
+      }
       return [];
     }
 
@@ -696,7 +723,13 @@ export class WhatsAppSessionManager {
 
   public async getContacts(sessionId?: string): Promise<any[]> {
     const session = sessionId ? this.sessions.get(sessionId) : this.getPrimarySession();
-    if (!session || !session.isReady) {
+    if (!session || !session.isReady || !session.client) {
+      // Check legacy WhatsApp service as fallback
+      const legacyService = (global as any).whatsappService;
+      if (legacyService && legacyService.isReady && legacyService.client) {
+        console.log('📱 Using legacy WhatsApp service for contacts');
+        return await legacyService.getContacts();
+      }
       return [];
     }
 
@@ -723,7 +756,13 @@ export class WhatsAppSessionManager {
 
   public async getGroups(sessionId?: string): Promise<any[]> {
     const session = sessionId ? this.sessions.get(sessionId) : this.getPrimarySession();
-    if (!session || !session.isReady) {
+    if (!session || !session.isReady || !session.client) {
+      // Check legacy WhatsApp service as fallback
+      const legacyService = (global as any).whatsappService;
+      if (legacyService && legacyService.isReady && legacyService.client) {
+        console.log('📱 Using legacy WhatsApp service for groups');
+        return await legacyService.getGroups();
+      }
       return [];
     }
 
