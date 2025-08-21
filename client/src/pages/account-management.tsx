@@ -51,7 +51,15 @@ export default function AccountManagement() {
   });
 
   // Get active account (first connected account by default)
-  const accounts = accountsData?.accounts || [];
+  const allAccounts = accountsData?.accounts || [];
+  
+  // Filter out dummy accounts (disconnected accounts with empty names/numbers)
+  const accounts = allAccounts.filter((account: WhatsAppAccount) => {
+    // Show account if it has a valid name and number, or if it's connected
+    return (account.name && account.name.trim() !== '' && account.number && account.number.trim() !== '') || 
+           account.status === 'connected';
+  });
+  
   const connectedAccounts = accounts.filter(acc => acc.status === 'connected');
   const disconnectedAccounts = accounts.filter(acc => acc.status === 'disconnected');
   
