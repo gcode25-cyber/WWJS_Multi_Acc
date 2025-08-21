@@ -79,7 +79,7 @@ export default function ChatPage() {
     enabled: !!contactId,
     refetchInterval: false, // Disabled - using WebSocket for real-time updates
     staleTime: 30000, // Cache for 30 seconds - WebSocket handles real-time
-    cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes (was cacheTime in v4)
   });
 
   // Listen for real-time messages via WebSocket
@@ -190,7 +190,9 @@ export default function ChatPage() {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatHistory?.messages) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [chatHistory?.messages]);
 
   if (!match || !contactId) {
@@ -354,12 +356,12 @@ export default function ChatPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p>Loading chat history...</p>
             </div>
-          ) : chatHistory?.messages.length === 0 ? (
+          ) : !chatHistory?.messages || chatHistory.messages.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No messages yet. Start the conversation!</p>
             </div>
           ) : (
-            chatHistory?.messages.map((msg) => (
+            chatHistory?.messages?.map((msg: Message) => (
               <div
                 key={msg.id}
                 className={`flex ${msg.fromMe ? 'justify-end' : 'justify-start'} px-1 sm:px-0`}

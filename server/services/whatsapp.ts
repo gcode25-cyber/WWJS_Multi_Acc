@@ -1146,11 +1146,22 @@ export class WhatsAppService {
 
   async getChatHistory(chatId: string, limit: number = 50): Promise<{contact: any, messages: any[]}> {
     if (!this.client || !this.isReady) {
-      throw new Error('WhatsApp client is not ready');
+      console.log('⚠️ WhatsApp client not ready for chat history request');
+      return {
+        contact: {
+          id: chatId,
+          name: 'Unknown Contact',
+          number: chatId.split('@')[0],
+          isMyContact: false,
+          isWAContact: false,
+          profilePicUrl: null,
+          isGroup: chatId.includes('@g.us')
+        },
+        messages: []
+      };
     }
 
     try {
-
       const chat = await this.client.getChatById(chatId);
       const messages = await chat.fetchMessages({ limit });
       
@@ -1254,7 +1265,31 @@ export class WhatsAppService {
         messages: messageData
       };
     } catch (error: any) {
-      console.error('❌ Failed to fetch chat history:', error.message);
+      console.log(`❌ Failed to fetch chat history: ${error.message}`);
+      
+      // Check if error is due to disconnection and update status
+      if (error.message.includes('Cannot read properties of undefined') || 
+          error.message.includes('getChat') ||
+          error.message.includes('Session closed') ||
+          error.message.includes('Protocol error')) {
+        console.log('🔌 Connection lost during chat history fetch - updating status');
+        this.isReady = false;
+        
+        // Return a fallback empty response instead of throwing
+        return {
+          contact: {
+            id: chatId,
+            name: 'Unknown Contact',
+            number: chatId.split('@')[0],
+            isMyContact: false,
+            isWAContact: false,
+            profilePicUrl: null,
+            isGroup: chatId.includes('@g.us')
+          },
+          messages: []
+        };
+      }
+      
       throw error;
     }
   }
