@@ -318,6 +318,15 @@ export default function Dashboard() {
     staleTime: 30000 // Cache for 30 seconds
   });
 
+  // Reset contacts pagination when WhatsApp connects/disconnects
+  useEffect(() => {
+    // Reset pagination when session status changes
+    setContactsPage(1);
+    setContactsSearch('');
+    setAllContacts([]);
+    setIsLoadingMore(false);
+  }, [!!sessionInfo]); // Trigger when sessionInfo changes from null to data or vice versa
+
   // Handle contacts pagination response with progressive loading
   useEffect(() => {
     if (contactsResponse) {
@@ -496,7 +505,7 @@ export default function Dashboard() {
           // Use setTimeout to ensure session-info loads first
           setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
             queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
             console.log('🔄 Data queries invalidated after legacy connection');
           }, 100);
@@ -514,7 +523,7 @@ export default function Dashboard() {
               // Refresh data when phone reconnects - use timeout for proper sequencing
               setTimeout(() => {
                 queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-                queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
                 queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
                 console.log('🔄 Data queries invalidated after real-time connection');
               }, 100);
@@ -547,10 +556,8 @@ export default function Dashboard() {
           }
           break;
         case 'contacts_updated':
-          // Update contacts cache with real-time data
-          if (message.data?.contacts) {
-            queryClient.setQueryData(['/api/contacts'], message.data.contacts);
-          }
+          // Update contacts cache with real-time data - invalidate pagination queries
+          queryClient.invalidateQueries({ queryKey: ['contacts'] }); // Invalidate all contact queries
           break;
         case 'groups_updated':
           // Update groups cache with real-time data
@@ -587,7 +594,7 @@ export default function Dashboard() {
           setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
             queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
             console.log('🔄 Data queries invalidated after connection');
           }, 100);
           
