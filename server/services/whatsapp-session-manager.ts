@@ -72,12 +72,29 @@ export class WhatsAppSessionManager {
           const fullPath = path.join(sessionPath, dir);
           if (fs.statSync(fullPath).isDirectory()) {
             console.log(`📦 Found session directory: ${dir}`);
-            await this.createSession(dir, false); // Don't initialize immediately
+            
+            // Create session and set up for potential relogin 
+            const session = await this.createSession(dir, false);
+            session.info.status = 'disconnected'; // Mark as disconnected initially
+            
+            // Try to get stored account info to populate name/number
+            try {
+              const storedAccounts = await storage.getStoredAccounts();
+              const matchingAccount = storedAccounts.find(acc => acc.sessionId === dir);
+              if (matchingAccount) {
+                session.info.name = matchingAccount.name;
+                session.info.number = matchingAccount.phone;
+                session.info.loginTime = matchingAccount.loginTime?.toISOString() || '';
+                console.log(`💾 Restored session data for ${dir}: ${matchingAccount.name} (${matchingAccount.phone})`);
+              }
+            } catch (error) {
+              console.log(`No stored account data for ${dir}`);
+            }
           }
         }
       }
 
-      // Also restore from database
+      // Also restore from database 
       const storedSessions = await storage.getActiveSessions();
       for (const session of storedSessions) {
         if (!this.sessions.has(session.userId)) {
@@ -85,7 +102,10 @@ export class WhatsAppSessionManager {
         }
       }
 
-      console.log(`✅ Restored ${this.sessions.size} WhatsApp sessions`);
+      console.log(`✅ Restored ${this.sessions.size} WhatsApp sessions (ready for relogin)`);
+      
+      // Broadcast the session update to show all restored sessions
+      this.broadcastSessionUpdate();
     } catch (error: any) {
       console.error('Failed to restore sessions:', error.message);
     }
@@ -541,20 +561,23 @@ export class WhatsAppSessionManager {
   }
 
   public getAllSessionsInfo(): WhatsAppSessionInfo[] {
-    // Filter out sessions without proper data, but include sessions that are actively waiting for QR auth
+    // Get all sessions - be more lenient to show restored sessions even without complete data
     const sessionInfos = Array.from(this.sessions.values())
       .map(s => s.info)
       .filter(info => {
         // Include connected sessions with valid name and number
-        if (info.name && info.number) return true;
+        if (info.name && info.number && info.status === 'connected') return true;
         
-        // Include sessions that are actively waiting for QR authentication
+        // Include sessions that are actively waiting for QR authentication  
         if (info.status === 'qr_required' || info.status === 'connecting') return true;
         
         // Include disconnected sessions that have valid name and number (for relogin)
         if (info.status === 'disconnected' && info.name && info.number) return true;
         
-        // Filter out other sessions without valid data
+        // Include all restored sessions from file directories (even without name/number initially)
+        if (info.sessionId && (info.sessionId.includes('session_') || info.sessionId === 'main_session')) return true;
+        
+        // Filter out only completely empty sessions
         return false;
       });
     
