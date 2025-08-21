@@ -675,11 +675,8 @@ export class WhatsAppSessionManager {
       return contact.isMyContact && 
              contact.isWAContact && 
              contact.name && 
-             contact.name !== contact.id.user && // Has a real name, not just phone number
              !contact.id._serialized.includes('@g.us') && // Exclude groups
-             !contact.id._serialized.includes('status@broadcast') && // Exclude status broadcasts
-             contact.number && // Has a phone number
-             contact.number !== contact.id.user; // Number is different from ID (indicates proper contact)
+             !contact.id._serialized.includes('status@broadcast'); // Exclude status broadcasts
     });
     
     return filteredContacts.map((contact: any) => ({
