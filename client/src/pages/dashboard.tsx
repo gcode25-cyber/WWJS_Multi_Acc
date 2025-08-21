@@ -251,9 +251,42 @@ export default function Dashboard() {
     refetchInterval: selectedModule === 'account' ? 10000 : false, // Refresh every 10 seconds when viewing accounts
   });
 
-  // Fetch chats with real-time updates
-  const { data: chats = [], isLoading: chatsLoading } = useQuery<Chat[]>({
-    queryKey: ['/api/chats'],
+  // State for chats pagination
+  const [chatsPage, setChatsPage] = useState(1);
+  const [chatsSearch, setChatsSearch] = useState('');
+  
+  // Fetch chats with pagination and real-time updates
+  const { data: chatsResponse, isLoading: chatsLoading } = useQuery<{
+    chats: Chat[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }>({
+    queryKey: ['chats', chatsPage, chatsSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: chatsPage.toString(),
+        limit: '20'
+      });
+      if (chatsSearch.trim()) {
+        params.append('search', chatsSearch.trim());
+      }
+      
+      const response = await fetch(`/api/chats?${params.toString()}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch chats: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
     enabled: !!sessionInfo,
     retry: (failureCount, error: any) => {
       // Retry 503 errors (WhatsApp not connected) up to 3 times
@@ -264,8 +297,11 @@ export default function Dashboard() {
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
     refetchInterval: false, // Disable automatic refetch since we use WebSocket updates
-    staleTime: Infinity, // Data is always fresh from WebSocket
+    staleTime: 30000, // Cache for 30 seconds
   });
+  
+  // Extract chats from paginated response
+  const chats = chatsResponse?.chats || [];
 
   // Contacts pagination state
   const [contactsPage, setContactsPage] = useState(1);
@@ -389,9 +425,42 @@ export default function Dashboard() {
   // All contacts for compatibility with existing code
   const contacts = allContacts;
 
-  // Fetch groups with real-time updates
-  const { data: groups = [], isLoading: groupsLoading } = useQuery<Group[]>({
-    queryKey: ['/api/groups'],
+  // State for groups pagination
+  const [groupsPage, setGroupsPage] = useState(1);
+  const [groupsSearch, setGroupsSearch] = useState('');
+  
+  // Fetch groups with pagination and real-time updates
+  const { data: groupsResponse, isLoading: groupsLoading } = useQuery<{
+    groups: Group[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }>({
+    queryKey: ['groups', groupsPage, groupsSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: groupsPage.toString(),
+        limit: '20'
+      });
+      if (groupsSearch.trim()) {
+        params.append('search', groupsSearch.trim());
+      }
+      
+      const response = await fetch(`/api/groups?${params.toString()}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch groups: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
     enabled: !!sessionInfo,
     retry: (failureCount, error: any) => {
       // Retry 503 errors (WhatsApp not connected) up to 3 times
@@ -402,8 +471,11 @@ export default function Dashboard() {
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
     refetchInterval: false, // Disable automatic refetch since we use WebSocket updates
-    staleTime: Infinity, // Data is always fresh from WebSocket
+    staleTime: 30000, // Cache for 30 seconds
   });
+  
+  // Extract groups from paginated response
+  const groups = groupsResponse?.groups || [];
 
   // ⚡ Efficient bulk campaigns with conditional refresh
   const { data: bulkCampaigns = [], isLoading: campaignsLoading } = useQuery<BulkCampaign[]>({
@@ -546,9 +618,9 @@ export default function Dashboard() {
             
             // Wait additional time for session to be established
             setTimeout(() => {
-              queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+              queryClient.invalidateQueries({ queryKey: ['chats'] });
               queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
-              queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+              queryClient.invalidateQueries({ queryKey: ['groups'] });
               console.log('🔄 Data queries invalidated after legacy session established');
             }, 500); // Additional delay for session establishment
           }, 200);
@@ -570,9 +642,9 @@ export default function Dashboard() {
                 
                 // Wait for session to be fully established
                 setTimeout(() => {
-                  queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+                  queryClient.invalidateQueries({ queryKey: ['chats'] });
                   queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
-                  queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+                  queryClient.invalidateQueries({ queryKey: ['groups'] });
                   console.log('🔄 Data queries invalidated after real-time session established');
                 }, 500); // Additional delay for session establishment
               }, 200);
@@ -602,6 +674,12 @@ export default function Dashboard() {
           setContactsPage(1);
           setContactsSearch('');
           
+          // Clear chats and groups pagination data
+          setChatsPage(1);
+          setChatsSearch('');
+          setGroupsPage(1);
+          setGroupsSearch('');
+          
           // Invalidate to refresh UI state
           queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
           queryClient.invalidateQueries({ queryKey: ['/api/get-qr'] });
@@ -610,10 +688,16 @@ export default function Dashboard() {
         case 'chats_updated':
           // Update chats cache with real-time data or invalidate for fresh fetch
           if (message.data?.chats) {
-            queryClient.setQueryData(['/api/chats'], message.data.chats);
+            // Update first page of chats if currently viewing it
+            if (chatsPage === 1) {
+              queryClient.setQueryData(['chats', 1, chatsSearch], {
+                chats: message.data.chats,
+                pagination: chatsResponse?.pagination || { page: 1, limit: 20, total: message.data.chats.length, totalPages: 1, hasNext: false, hasPrev: false }
+              });
+            }
           } else {
             // If no data provided, invalidate cache to trigger fresh fetch
-            queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+            queryClient.invalidateQueries({ queryKey: ['chats'] });
           }
           break;
         case 'contacts_updated':
@@ -623,12 +707,20 @@ export default function Dashboard() {
         case 'groups_updated':
           // Update groups cache with real-time data
           if (message.data?.groups) {
-            queryClient.setQueryData(['/api/groups'], message.data.groups);
+            // Update first page of groups if currently viewing it
+            if (groupsPage === 1) {
+              queryClient.setQueryData(['groups', 1, groupsSearch], {
+                groups: message.data.groups,
+                pagination: groupsResponse?.pagination || { page: 1, limit: 20, total: message.data.groups.length, totalPages: 1, hasNext: false, hasPrev: false }
+              });
+            }
+          } else {
+            queryClient.invalidateQueries({ queryKey: ['groups'] });
           }
           break;
         case 'new_message':
           // Refresh chat list when new message arrives to update last message and unread count
-          queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+          queryClient.invalidateQueries({ queryKey: ['chats'] });
           console.log('🔄 New message received, refreshing chat list...');
           break;
         case 'sessions_updated':
@@ -1500,9 +1592,9 @@ export default function Dashboard() {
     
     const autoRefreshInterval = setInterval(() => {
       // Silently refresh data in background
-      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
     }, 60000); // Every 60 seconds
 
     return () => clearInterval(autoRefreshInterval);

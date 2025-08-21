@@ -755,7 +755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all chats from active WhatsApp account (sorted by latest activity)
+  // Get chats from active WhatsApp account with pagination support
   app.get("/api/chats", async (req, res) => {
     try {
       // Get active account or use first connected session
@@ -770,13 +770,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeAccountId = targetSession; // Auto-set as active
       }
 
+      // Parse pagination parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20; // Default 20 chats per page
+      const search = (req.query.search as string) || '';
+      const offset = (page - 1) * limit;
+
+      console.log(`💬 Loading chats - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
+
       // Disable caching for chats to ensure fresh data
       res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       
-      const chats = await sessionManager.getChats(targetSession);
-      res.json(chats);
+      const allChats = await sessionManager.getChats(targetSession);
+      
+      // Apply search filter if provided
+      let filteredChats = allChats;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filteredChats = allChats.filter(chat => 
+          (chat.name || '').toLowerCase().includes(searchLower) ||
+          (chat.id || '').includes(search)
+        );
+      }
+      
+      // Calculate pagination
+      const totalChats = filteredChats.length;
+      const totalPages = Math.ceil(totalChats / limit);
+      const paginatedChats = filteredChats.slice(offset, offset + limit);
+      
+      console.log(`💬 Chats loaded: ${paginatedChats.length}/${totalChats} (Page ${page}/${totalPages})`);
+      
+      res.json({
+        chats: paginatedChats,
+        pagination: {
+          page,
+          limit,
+          total: totalChats,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      });
     } catch (error: any) {
       console.error("Get chats error:", error);
       res.status(500).json({ error: error.message || "Failed to get chats" });
@@ -919,7 +955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all groups from active WhatsApp account
+  // Get groups from active WhatsApp account with pagination support
   app.get("/api/groups", async (req, res) => {
     try {
       // Get active account or use first connected session
@@ -934,13 +970,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeAccountId = targetSession; // Auto-set as active
       }
 
+      // Parse pagination parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20; // Default 20 groups per page
+      const search = (req.query.search as string) || '';
+      const offset = (page - 1) * limit;
+
+      console.log(`👥 Loading groups - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
+
       // Disable caching for groups to ensure fresh data
       res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       
-      const groups = await sessionManager.getGroups(targetSession);
-      res.json(groups);
+      const allGroups = await sessionManager.getGroups(targetSession);
+      
+      // Apply search filter if provided
+      let filteredGroups = allGroups;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filteredGroups = allGroups.filter(group => 
+          (group.name || '').toLowerCase().includes(searchLower) ||
+          (group.id || '').includes(search)
+        );
+      }
+      
+      // Sort groups alphabetically by name for consistent ordering
+      filteredGroups.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      
+      // Calculate pagination
+      const totalGroups = filteredGroups.length;
+      const totalPages = Math.ceil(totalGroups / limit);
+      const paginatedGroups = filteredGroups.slice(offset, offset + limit);
+      
+      console.log(`👥 Groups loaded: ${paginatedGroups.length}/${totalGroups} (Page ${page}/${totalPages})`);
+      
+      res.json({
+        groups: paginatedGroups,
+        pagination: {
+          page,
+          limit,
+          total: totalGroups,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      });
     } catch (error: any) {
       console.error("Get groups error:", error);
       res.status(500).json({ error: error.message || "Failed to get groups" });
