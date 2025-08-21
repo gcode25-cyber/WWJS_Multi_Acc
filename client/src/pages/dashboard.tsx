@@ -490,10 +490,16 @@ export default function Dashboard() {
           break;
         case 'connected':
           // Invalidate session info when connected and refresh data
+          console.log('📱 WhatsApp connected via legacy event! Refreshing all data...');
           queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+          
+          // Use setTimeout to ensure session-info loads first
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+            console.log('🔄 Data queries invalidated after legacy connection');
+          }, 100);
           break;
         case 'connection_status':
           // Handle robust real-time connection status updates (like WhatsApp Web)
@@ -505,10 +511,13 @@ export default function Dashboard() {
             if (isConnected && message.data.sessionInfo) {
               queryClient.setQueryData(['/api/session-info'], message.data.sessionInfo);
               
-              // Refresh data when phone reconnects
-              queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-              queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
-              queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+              // Refresh data when phone reconnects - use timeout for proper sequencing
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+                queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+                console.log('🔄 Data queries invalidated after real-time connection');
+              }, 100);
             } else if (!isConnected) {
               // Clear session data when phone disconnects
               queryClient.setQueryData(['/api/session-info'], null);
@@ -569,12 +578,19 @@ export default function Dashboard() {
           }
           break;
         case 'account_connected':
-          // Handle account connection
+          // Handle account connection - IMPORTANT: Invalidate session-info FIRST
+          console.log('📱 WhatsApp connected! Refreshing all data...');
+          queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
           queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
-          // Also invalidate chats, groups, and contacts when WhatsApp connects
-          queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-          queryClient.invalidateQueries({ queryKey: ['contacts'] });
+          
+          // Use setTimeout to ensure session-info loads first, then invalidate data queries
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            console.log('🔄 Data queries invalidated after connection');
+          }, 100);
+          
           if (message.data?.sessionId) {
             setAccountQRCodes(prev => {
               const newMap = new Map(prev);
