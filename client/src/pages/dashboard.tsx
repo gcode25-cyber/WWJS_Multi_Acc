@@ -259,6 +259,9 @@ export default function Dashboard() {
   // Get the currently connected account sessionId
   const currentSessionId = whatsappAccounts.find(acc => acc.status === 'connected')?.sessionId;
   
+  // Use connected account as session indicator instead of deprecated sessionInfo
+  const hasConnectedSession = !!currentSessionId;
+  
   // Debug logging for session detection
   useEffect(() => {
     console.log('🔍 WhatsApp accounts:', whatsappAccounts);
@@ -2290,7 +2293,7 @@ export default function Dashboard() {
                             size="sm"
                             className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
                             onClick={() => setShowContactsDropdown(!showContactsDropdown)}
-                            disabled={!sessionInfo || contacts.length === 0}
+                            disabled={!hasConnectedSession || contacts.length === 0}
                           >
                             <UserCheck className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                           </Button>
@@ -2542,7 +2545,7 @@ export default function Dashboard() {
                       <div className="flex items-center space-x-2">
                         <Button 
                           onClick={handleAddToContactGroups}
-                          disabled={!sessionInfo || selectedContacts.size === 0}
+                          disabled={!hasConnectedSession || selectedContacts.size === 0}
                           variant="outline"
                           size="sm"
                         >
@@ -2551,7 +2554,7 @@ export default function Dashboard() {
                         </Button>
                         <Button 
                           onClick={exportContactsCSV}
-                          disabled={!sessionInfo || contacts.length === 0}
+                          disabled={!hasConnectedSession || contacts.length === 0}
                           size="sm"
                         >
                           <Download className="h-4 w-4 mr-2" />
@@ -2605,7 +2608,7 @@ export default function Dashboard() {
                   
                   {/* Scrollable Content */}
                   <div className="flex-1 overflow-y-auto p-6 pr-2 min-h-0">
-                    {!sessionInfo ? (
+                    {!hasConnectedSession ? (
                       <div className="text-center p-8">
                         <Phone className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <h3 className="text-lg font-semibold mb-2">Connect WhatsApp</h3>
@@ -2904,7 +2907,7 @@ export default function Dashboard() {
                     </div>
                     <Dialog open={showBulkMessageDialog} onOpenChange={setShowBulkMessageDialog}>
                       <DialogTrigger asChild>
-                        <Button disabled={!sessionInfo} className="w-full sm:w-auto">
+                        <Button disabled={!hasConnectedSession} className="w-full sm:w-auto">
                           <Plus className="h-4 w-4 mr-2" />
                           Create Campaign
                         </Button>
@@ -3537,7 +3540,7 @@ export default function Dashboard() {
                     </div>
                     <Button 
                       onClick={exportAllGroupsCSV}
-                      disabled={!sessionInfo || groups.length === 0}
+                      disabled={!hasConnectedSession || groups.length === 0}
                       size="sm"
                     >
                       <Download className="h-4 w-4 mr-2" />
