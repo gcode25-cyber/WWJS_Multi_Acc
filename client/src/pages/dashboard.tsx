@@ -235,7 +235,15 @@ export default function Dashboard() {
   // Fetch chats with real-time updates
   const { data: chats = [], isLoading: chatsLoading } = useQuery<Chat[]>({
     queryKey: ['/api/chats'],
-    enabled: !!sessionInfo,
+    enabled: !!sessionInfo || whatsappAccounts.some(acc => acc.status === 'connected'),
+    retry: (failureCount, error: any) => {
+      // Retry 503 errors (WhatsApp not connected) up to 3 times
+      if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
+        return failureCount < 3;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
     refetchInterval: false, // Disable automatic refetch since we use WebSocket updates
     staleTime: Infinity, // Data is always fresh from WebSocket
   });
@@ -278,7 +286,15 @@ export default function Dashboard() {
       
       return response.json();
     },
-    enabled: !!sessionInfo,
+    enabled: !!sessionInfo || whatsappAccounts.some(acc => acc.status === 'connected'),
+    retry: (failureCount, error: any) => {
+      // Retry 503 errors (WhatsApp not connected) up to 3 times
+      if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
+        return failureCount < 3;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
     refetchInterval: false,
     staleTime: 30000 // Cache for 30 seconds
   });
@@ -311,7 +327,15 @@ export default function Dashboard() {
   // Fetch groups with real-time updates
   const { data: groups = [], isLoading: groupsLoading } = useQuery<Group[]>({
     queryKey: ['/api/groups'],
-    enabled: !!sessionInfo,
+    enabled: !!sessionInfo || whatsappAccounts.some(acc => acc.status === 'connected'),
+    retry: (failureCount, error: any) => {
+      // Retry 503 errors (WhatsApp not connected) up to 3 times
+      if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
+        return failureCount < 3;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
     refetchInterval: false, // Disable automatic refetch since we use WebSocket updates
     staleTime: Infinity, // Data is always fresh from WebSocket
   });
@@ -545,6 +569,10 @@ export default function Dashboard() {
         case 'account_connected':
           // Handle account connection
           queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+          // Also invalidate chats, groups, and contacts when WhatsApp connects
+          queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+          queryClient.invalidateQueries({ queryKey: ['contacts'] });
           if (message.data?.sessionId) {
             setAccountQRCodes(prev => {
               const newMap = new Map(prev);
