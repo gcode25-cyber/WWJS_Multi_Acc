@@ -1,0 +1,16 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+uploads/
+attached_assets/
+# Chrome user data folders for WhatsApp Web.js
+chrome-user-data/
+.wwebjs_auth/
+.whatsapp-session/
+# Prevent any timestamped or random Chrome user data folders
+chrome_user_data_*/
+.chrome_user_data*/
+chrome user data */

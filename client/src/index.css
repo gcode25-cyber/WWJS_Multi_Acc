@@ -1,0 +1,171 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Enhanced Mobile Viewport Handling */
+@viewport {
+  width: device-width;
+  zoom: 1.0;
+}
+
+/* Fix for small screens and viewport issues */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Responsive typography */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 13px;
+  }
+}
+
+/* Ensure proper scrolling on mobile */
+@layer utilities {
+  .scroll-smooth-mobile {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .responsive-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  
+  @media (min-width: 768px) {
+    .responsive-grid {
+      grid-template-columns: auto auto 1fr;
+    }
+  }
+}
+
+/* Disable text selection globally */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection for input fields and editable content */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+:root {
+  --background: hsl(0, 0%, 98%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(210, 40%, 98%);
+  --secondary: hsl(210, 40%, 96%);
+  --secondary-foreground: hsl(222.2, 84%, 4.9%);
+  --accent: hsl(210, 40%, 96%);
+  --accent-foreground: hsl(222.2, 47.4%, 11.2%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+  --ring: hsl(207, 90%, 54%);
+  --radius: 0.5rem;
+  --success: hsl(142, 71%, 45%);
+  --warning: hsl(38, 92%, 50%);
+  --error: hsl(0, 84%, 60%);
+  --surface: hsl(0, 0%, 100%);
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(210, 40%, 98%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+  --success: hsl(142, 71%, 45%);
+  --warning: hsl(38, 92%, 50%);
+  --error: hsl(0, 84%, 60%);
+  --surface: hsl(240, 10%, 3.9%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  }
+
+  body {
+    @apply font-inter antialiased bg-background text-foreground;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 2s infinite;
+  }
+
+  /* Emoji and Unicode support */
+  .emoji, .message-content, .chat-message, .contact-name {
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    font-feature-settings: "liga" on, "calt" on;
+    -webkit-font-feature-settings: "liga" on, "calt" on;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Force emoji rendering */
+  .emoji {
+    font-variant-emoji: emoji;
+    font-style: normal;
+    font-weight: normal;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
