@@ -1390,8 +1390,8 @@ export class WhatsAppService {
       throw new Error('WhatsApp client is not ready');
     }
 
-    // Additional check to ensure client is actually connected
-    if (!this.client.info || !this.client.info.wid) {
+    // Check if we have session info or client is authenticated
+    if (!this.sessionInfo && (!this.client.info || !this.client.info.wid)) {
       throw new Error('WhatsApp client not fully connected');
     }
 
@@ -1465,8 +1465,8 @@ export class WhatsAppService {
       throw new Error('WhatsApp client is not ready');
     }
 
-    // Additional check to ensure client is actually connected
-    if (!this.client.info || !this.client.info.wid) {
+    // Check if we have session info or client is authenticated  
+    if (!this.sessionInfo && (!this.client.info || !this.client.info.wid)) {
       throw new Error('WhatsApp client not fully connected');
     }
 
@@ -1563,6 +1563,11 @@ export class WhatsAppService {
   async getGroups(): Promise<any[]> {
     if (!this.client || !this.isReady) {
       throw new Error('WhatsApp client is not ready');
+    }
+
+    // Check if we have session info or client is authenticated
+    if (!this.sessionInfo && (!this.client.info || !this.client.info.wid)) {
+      throw new Error('WhatsApp client not fully connected');
     }
 
     try {
