@@ -144,6 +144,9 @@ export default function Dashboard() {
   const [selectedContactGroup, setSelectedContactGroup] = useState("");
   const [bulkMessage, setBulkMessage] = useState("");
   const [importingGroupId, setImportingGroupId] = useState<string | null>(null);
+  
+  // Account-specific loading states
+  const [loadingAccounts, setLoadingAccounts] = useState<Set<string>>(new Set());
   const wsRef = useRef<WebSocket | null>(null);
   
   // Enhanced campaign states
@@ -943,6 +946,7 @@ export default function Dashboard() {
   // Logout account mutation (keeps account data but disconnects)
   const logoutAccountMutation = useMutation({
     mutationFn: async (sessionId: string) => {
+      setLoadingAccounts(prev => new Set([...prev, sessionId]));
       const response = await fetch(`/api/accounts/${sessionId}/logout`, {
         method: 'POST',
         credentials: 'include'
@@ -950,14 +954,24 @@ export default function Dashboard() {
       if (!response.ok) throw new Error('Failed to logout account');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, sessionId) => {
+      setLoadingAccounts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sessionId);
+        return newSet;
+      });
       toast({
         title: "Account Logged Out",
         description: "WhatsApp account has been logged out but kept for relogin.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
     },
-    onError: (error: any) => {
+    onError: (error: any, sessionId) => {
+      setLoadingAccounts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sessionId);
+        return newSet;
+      });
       toast({
         title: "Failed to Logout Account",
         description: error.message || "Failed to logout account",
@@ -969,6 +983,7 @@ export default function Dashboard() {
   // Relogin account mutation
   const reloginAccountMutation = useMutation({
     mutationFn: async (sessionId: string) => {
+      setLoadingAccounts(prev => new Set([...prev, sessionId]));
       const response = await fetch(`/api/accounts/${sessionId}/relogin`, {
         method: 'POST',
         credentials: 'include'
@@ -976,14 +991,24 @@ export default function Dashboard() {
       if (!response.ok) throw new Error('Failed to relogin account');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, sessionId) => {
+      setLoadingAccounts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sessionId);
+        return newSet;
+      });
       toast({
         title: "Relogin Initiated",
         description: "Account relogin started. Please scan the QR code to reconnect.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
     },
-    onError: (error: any) => {
+    onError: (error: any, sessionId) => {
+      setLoadingAccounts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sessionId);
+        return newSet;
+      });
       toast({
         title: "Failed to Relogin Account",
         description: error.message || "Failed to initiate relogin",
@@ -2122,10 +2147,10 @@ export default function Dashboard() {
                                     variant="outline" 
                                     size="sm"
                                     onClick={() => logoutAccountMutation.mutate(account.sessionId)}
-                                    disabled={logoutAccountMutation.isPending}
+                                    disabled={loadingAccounts.has(account.sessionId)}
                                     className="flex items-center space-x-2"
                                   >
-                                    {logoutAccountMutation.isPending ? (
+                                    {loadingAccounts.has(account.sessionId) ? (
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                       <LogOut className="h-4 w-4" />
@@ -2139,10 +2164,10 @@ export default function Dashboard() {
                                       variant="default" 
                                       size="sm"
                                       onClick={() => reloginAccountMutation.mutate(account.sessionId)}
-                                      disabled={reloginAccountMutation.isPending}
+                                      disabled={loadingAccounts.has(account.sessionId)}
                                       className="flex items-center space-x-2"
                                     >
-                                      {reloginAccountMutation.isPending ? (
+                                      {loadingAccounts.has(account.sessionId) ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />
                                       ) : (
                                         <RotateCcw className="h-4 w-4" />
