@@ -632,6 +632,177 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get chats for a specific session (use "session" prefix to avoid conflicts)
+  app.get("/api/session/:sessionId/chats", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      // Parse pagination parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 1000;
+      const search = (req.query.search as string) || '';
+      const offset = (page - 1) * limit;
+
+      console.log(`💬 Loading chats for session ${sessionId} - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
+
+      // Disable caching for chats to ensure fresh data
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      
+      const allChats = await sessionManager.getChats(sessionId);
+      
+      // Apply search filter if provided
+      let filteredChats = allChats;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filteredChats = allChats.filter(chat => 
+          (chat.name || '').toLowerCase().includes(searchLower) ||
+          (chat.id || '').includes(search)
+        );
+      }
+      
+      // Calculate pagination
+      const totalChats = filteredChats.length;
+      const totalPages = Math.ceil(totalChats / limit);
+      const paginatedChats = filteredChats.slice(offset, offset + limit);
+      
+      console.log(`💬 Chats loaded for ${sessionId}: ${paginatedChats.length}/${totalChats} (Page ${page}/${totalPages})`);
+      
+      res.json({
+        chats: paginatedChats,
+        pagination: {
+          page,
+          limit,
+          total: totalChats,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      });
+    } catch (error: any) {
+      console.error(`Get chats error for session ${req.params.sessionId}:`, error);
+      res.status(500).json({ error: error.message || "Failed to get chats" });
+    }
+  });
+
+  // Get groups for a specific session (use "session" prefix to avoid conflicts)
+  app.get("/api/session/:sessionId/groups", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      // Parse pagination parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 1000;
+      const search = (req.query.search as string) || '';
+      const offset = (page - 1) * limit;
+
+      console.log(`👥 Loading groups for session ${sessionId} - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
+
+      // Disable caching for groups to ensure fresh data
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      
+      const allGroups = await sessionManager.getGroups(sessionId);
+      
+      // Apply search filter if provided
+      let filteredGroups = allGroups;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filteredGroups = allGroups.filter(group => 
+          (group.name || '').toLowerCase().includes(searchLower) ||
+          (group.id || '').includes(search)
+        );
+      }
+      
+      // Sort groups alphabetically by name for consistent ordering
+      filteredGroups.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      
+      // Calculate pagination
+      const totalGroups = filteredGroups.length;
+      const totalPages = Math.ceil(totalGroups / limit);
+      const paginatedGroups = filteredGroups.slice(offset, offset + limit);
+      
+      console.log(`👥 Groups loaded for ${sessionId}: ${paginatedGroups.length}/${totalGroups} (Page ${page}/${totalPages})`);
+      
+      res.json({
+        groups: paginatedGroups,
+        pagination: {
+          page,
+          limit,
+          total: totalGroups,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      });
+    } catch (error: any) {
+      console.error(`Get groups error for session ${req.params.sessionId}:`, error);
+      res.status(500).json({ error: error.message || "Failed to get groups" });
+    }
+  });
+
+  // Get contacts for a specific session (use "session" prefix to avoid conflicts)
+  app.get("/api/session/:sessionId/contacts", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      // Parse pagination parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 1000;
+      const search = (req.query.search as string) || '';
+      const offset = (page - 1) * limit;
+
+      console.log(`📄 Loading contacts for session ${sessionId} - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
+
+      const contacts = await sessionManager.getContacts(sessionId);
+      
+      // Additional validation for phone numbers (filtering already done in sessionManager)
+      const validContacts = contacts.filter(contact => {
+        return isValidPhoneNumber(contact.number || contact.id);
+      });
+
+      // Apply deduplication to clean up duplicate contacts
+      const deduplicatedContacts = deduplicateContacts(validContacts);
+      
+      // Apply search filter if provided
+      let filteredContacts = deduplicatedContacts;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filteredContacts = deduplicatedContacts.filter(contact => 
+          (contact.name || '').toLowerCase().includes(searchLower) ||
+          (contact.number || contact.id).includes(search)
+        );
+      }
+      
+      // Sort contacts alphabetically by name for consistent ordering
+      filteredContacts.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      
+      // Calculate pagination
+      const totalContacts = filteredContacts.length;
+      const totalPages = Math.ceil(totalContacts / limit);
+      const paginatedContacts = filteredContacts.slice(offset, offset + limit);
+      
+      console.log(`📊 Contacts loaded for ${sessionId}: ${paginatedContacts.length}/${totalContacts} (Page ${page}/${totalPages})`);
+      
+      res.json({
+        contacts: paginatedContacts,
+        pagination: {
+          page,
+          limit,
+          total: totalContacts,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      });
+    } catch (error: any) {
+      console.error(`Get contacts error for session ${req.params.sessionId}:`, error);
+      res.status(500).json({ error: error.message || "Failed to get contacts" });
+    }
+  });
+
   // Get chat history for a specific chat
   app.get("/api/chats/:chatId/history", async (req, res) => {
     try {

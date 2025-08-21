@@ -63,13 +63,44 @@ export default function ChatPage() {
   const contactId = params?.contactId;
 
   // Fetch contact details from multiple sources
-  const { data: contacts = [] } = useQuery<Contact[]>({
-    queryKey: ['/api/contacts'],
+  // Get WhatsApp accounts to find current session
+  const { data: whatsappAccounts = [] } = useQuery<{sessionId: string; status: string}[]>({
+    queryKey: ['/api/accounts'],
+    queryFn: async () => {
+      const response = await fetch('/api/accounts', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch accounts');
+      const data = await response.json();
+      return data.accounts || [];
+    },
+  });
+
+  // Get the currently connected account sessionId
+  const currentSessionId = whatsappAccounts.find(acc => acc.status === 'connected')?.sessionId;
+
+  const { data: contactsResponse } = useQuery<{contacts: Contact[]}>({
+    queryKey: ['/api/session/contacts', currentSessionId],
+    queryFn: async () => {
+      if (!currentSessionId) throw new Error('No connected session');
+      const response = await fetch(`/api/session/${currentSessionId}/contacts?limit=1000`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch contacts');
+      return response.json();
+    },
+    enabled: !!currentSessionId,
   });
   
-  const { data: groups = [] } = useQuery<Contact[]>({
-    queryKey: ['/api/groups'],
+  const { data: groupsResponse } = useQuery<{groups: Contact[]}>({
+    queryKey: ['/api/session/groups', currentSessionId],
+    queryFn: async () => {
+      if (!currentSessionId) throw new Error('No connected session');
+      const response = await fetch(`/api/session/${currentSessionId}/groups?limit=1000`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch groups');
+      return response.json();
+    },
+    enabled: !!currentSessionId,
   });
+
+  const contacts = contactsResponse?.contacts || [];
+  const groups = groupsResponse?.groups || [];
 
   const contact = contacts.find(c => c.id === contactId) || groups.find(g => g.id === contactId);
 

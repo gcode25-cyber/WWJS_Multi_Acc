@@ -255,6 +255,9 @@ export default function Dashboard() {
   const [chatsPage, setChatsPage] = useState(1);
   const [chatsSearch, setChatsSearch] = useState('');
   
+  // Get the currently connected account sessionId
+  const currentSessionId = whatsappAccounts.find(acc => acc.status === 'connected')?.sessionId;
+
   // Fetch chats with pagination and real-time updates
   const { data: chatsResponse, isLoading: chatsLoading } = useQuery<{
     chats: Chat[];
@@ -267,8 +270,12 @@ export default function Dashboard() {
       hasPrev: boolean;
     };
   }>({
-    queryKey: ['chats', chatsPage, chatsSearch],
+    queryKey: ['chats', currentSessionId, chatsPage, chatsSearch],
     queryFn: async () => {
+      if (!currentSessionId) {
+        throw new Error('No connected WhatsApp account found');
+      }
+      
       const params = new URLSearchParams({
         page: chatsPage.toString(),
         limit: '1000'
@@ -277,7 +284,7 @@ export default function Dashboard() {
         params.append('search', chatsSearch.trim());
       }
       
-      const response = await fetch(`/api/chats?${params.toString()}`, {
+      const response = await fetch(`/api/session/${currentSessionId}/chats?${params.toString()}`, {
         credentials: 'include'
       });
       
@@ -287,7 +294,7 @@ export default function Dashboard() {
       
       return response.json();
     },
-    enabled: !!sessionInfo,
+    enabled: !!currentSessionId,
     retry: (failureCount, error: any) => {
       // Retry 503 errors (WhatsApp not connected) up to 3 times
       if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
@@ -321,8 +328,12 @@ export default function Dashboard() {
       hasPrev: boolean;
     };
   }>({
-    queryKey: ['contacts', contactsPage, contactsSearch],
+    queryKey: ['contacts', currentSessionId, contactsPage, contactsSearch],
     queryFn: async () => {
+      if (!currentSessionId) {
+        throw new Error('No connected WhatsApp account found');
+      }
+      
       const params = new URLSearchParams({
         page: contactsPage.toString(),
         limit: '1000'
@@ -331,7 +342,7 @@ export default function Dashboard() {
         params.append('search', contactsSearch.trim());
       }
       
-      const response = await fetch(`/api/contacts?${params.toString()}`, {
+      const response = await fetch(`/api/session/${currentSessionId}/contacts?${params.toString()}`, {
         credentials: 'include'
       });
       
@@ -341,7 +352,7 @@ export default function Dashboard() {
       
       return response.json();
     },
-    enabled: !!sessionInfo,
+    enabled: !!currentSessionId,
     retry: (failureCount, error: any) => {
       // Retry 503 errors (WhatsApp not connected) up to 3 times
       if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
@@ -441,8 +452,12 @@ export default function Dashboard() {
       hasPrev: boolean;
     };
   }>({
-    queryKey: ['groups', groupsPage, groupsSearch],
+    queryKey: ['groups', currentSessionId, groupsPage, groupsSearch],
     queryFn: async () => {
+      if (!currentSessionId) {
+        throw new Error('No connected WhatsApp account found');
+      }
+      
       const params = new URLSearchParams({
         page: groupsPage.toString(),
         limit: '1000'
@@ -451,7 +466,7 @@ export default function Dashboard() {
         params.append('search', groupsSearch.trim());
       }
       
-      const response = await fetch(`/api/groups?${params.toString()}`, {
+      const response = await fetch(`/api/session/${currentSessionId}/groups?${params.toString()}`, {
         credentials: 'include'
       });
       
@@ -461,7 +476,7 @@ export default function Dashboard() {
       
       return response.json();
     },
-    enabled: !!sessionInfo,
+    enabled: !!currentSessionId,
     retry: (failureCount, error: any) => {
       // Retry 503 errors (WhatsApp not connected) up to 3 times
       if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
