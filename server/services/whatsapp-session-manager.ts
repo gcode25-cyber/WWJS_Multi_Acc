@@ -672,8 +672,7 @@ export class WhatsAppSessionManager {
     
     // Filter contacts to only show saved contacts from phone's address book
     const filteredContacts = contacts.filter((contact: any) => {
-      return contact.isMyContact && 
-             contact.isWAContact && 
+      return contact.isWAContact && 
              contact.name && 
              !contact.id._serialized.includes('@g.us') && // Exclude groups
              !contact.id._serialized.includes('status@broadcast'); // Exclude status broadcasts
