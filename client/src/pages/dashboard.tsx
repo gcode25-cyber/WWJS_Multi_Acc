@@ -625,12 +625,22 @@ export default function Dashboard() {
       if (!response.ok) throw new Error('Failed to remove account');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (data, sessionId) => {
+      // Clear QR code for removed account immediately
+      setAccountQRCodes(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(sessionId);
+        return newMap;
+      });
+      
+      // Force immediate invalidation and refetch
+      await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+      await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+      
       toast({
         title: "Account Removed",
         description: "WhatsApp account has been removed successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
     },
     onError: (error: any) => {
       toast({
