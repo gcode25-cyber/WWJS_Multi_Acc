@@ -338,6 +338,32 @@ export default function Dashboard() {
     }
   }, [sessionInfo?.name, sessionInfo?.loginTime, queryClient]); // Watch for actual session data
 
+  // Manual data refresh function for immediate use
+  const refreshAllData = useCallback(() => {
+    console.log('🔄 Manual data refresh initiated...');
+    queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
+    
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      console.log('✅ Manual data refresh completed');
+    }, 200);
+  }, [queryClient]);
+
+  // Trigger immediate data refresh if user is connected but has no data
+  useEffect(() => {
+    // Check if connected but no data after 3 seconds
+    const checkDataTimer = setTimeout(() => {
+      if (sessionInfo && (!chats.length && !allContacts.length)) {
+        console.log('🔄 Auto-triggering data refresh - connected but no data found');
+        refreshAllData();
+      }
+    }, 3000);
+
+    return () => clearTimeout(checkDataTimer);
+  }, [sessionInfo, chats.length, allContacts.length, refreshAllData]);
+
   // Handle contacts pagination response with progressive loading
   useEffect(() => {
     if (contactsResponse) {
@@ -636,8 +662,16 @@ export default function Dashboard() {
               queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
               queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
               console.log('🔄 Data queries invalidated after session established');
-            }, 500); // Additional delay for session establishment
-          }, 200);
+            }, 800); // Increased delay for better session establishment
+          }, 500); // Increased initial delay
+          
+          // Additional fallback - force refresh after longer delay if needed
+          setTimeout(() => {
+            console.log('🔄 Fallback data refresh triggered...');
+            queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+          }, 2000); // Fallback after 2 seconds
           
           if (message.data?.sessionId) {
             setAccountQRCodes(prev => {
