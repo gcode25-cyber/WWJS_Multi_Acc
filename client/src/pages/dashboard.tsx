@@ -232,10 +232,29 @@ export default function Dashboard() {
     refetchInterval: false, // Disable automatic refresh - load only when needed
   });
 
+  // ⚡ Fetch WhatsApp accounts for multi-account support - MOVED UP
+  const { data: whatsappAccounts = [], isLoading: accountsLoading } = useQuery<WhatsAppAccount[]>({
+    queryKey: ['/api/accounts'],
+    queryFn: async () => {
+      const response = await fetch('/api/accounts', {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch accounts');
+      }
+      const data = await response.json();
+      return data.accounts || [];
+    },
+    enabled: selectedModule === 'account',
+    staleTime: 30000, // Fresh for 30 seconds
+    gcTime: 5 * 60 * 1000, // Cache for 5 minutes
+    refetchInterval: selectedModule === 'account' ? 10000 : false, // Refresh every 10 seconds when viewing accounts
+  });
+
   // Fetch chats with real-time updates
   const { data: chats = [], isLoading: chatsLoading } = useQuery<Chat[]>({
     queryKey: ['/api/chats'],
-    enabled: !!sessionInfo || whatsappAccounts.some(acc => acc.status === 'connected'),
+    enabled: !!sessionInfo,
     retry: (failureCount, error: any) => {
       // Retry 503 errors (WhatsApp not connected) up to 3 times
       if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
@@ -286,7 +305,7 @@ export default function Dashboard() {
       
       return response.json();
     },
-    enabled: !!sessionInfo || whatsappAccounts.some(acc => acc.status === 'connected'),
+    enabled: !!sessionInfo,
     retry: (failureCount, error: any) => {
       // Retry 503 errors (WhatsApp not connected) up to 3 times
       if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
@@ -327,7 +346,7 @@ export default function Dashboard() {
   // Fetch groups with real-time updates
   const { data: groups = [], isLoading: groupsLoading } = useQuery<Group[]>({
     queryKey: ['/api/groups'],
-    enabled: !!sessionInfo || whatsappAccounts.some(acc => acc.status === 'connected'),
+    enabled: !!sessionInfo,
     retry: (failureCount, error: any) => {
       // Retry 503 errors (WhatsApp not connected) up to 3 times
       if (error?.message?.includes('503') || error?.message?.includes('No WhatsApp accounts connected')) {
@@ -350,24 +369,7 @@ export default function Dashboard() {
     refetchIntervalInBackground: false, // Stop background refresh for performance
   });
 
-  // ⚡ Fetch WhatsApp accounts for multi-account support
-  const { data: whatsappAccounts = [], isLoading: accountsLoading } = useQuery<WhatsAppAccount[]>({
-    queryKey: ['/api/accounts'],
-    queryFn: async () => {
-      const response = await fetch('/api/accounts', {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch accounts');
-      }
-      const data = await response.json();
-      return data.accounts || [];
-    },
-    enabled: selectedModule === 'account',
-    staleTime: 30000, // Fresh for 30 seconds
-    gcTime: 5 * 60 * 1000, // Cache for 5 minutes
-    refetchInterval: selectedModule === 'account' ? 10000 : false, // Refresh every 10 seconds when viewing accounts
-  });
+  // WhatsApp accounts query moved up above
 
   // Helper function to determine if a phone number is valid (more inclusive)
   const isValidPhoneNumber = (phoneNumber: string): boolean => {
