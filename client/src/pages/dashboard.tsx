@@ -1424,52 +1424,11 @@ export default function Dashboard() {
       <div className="h-screen flex flex-col xl:flex-row bg-gray-50 dark:bg-gray-900">
       {/* 📱 Mobile-First Responsive Left Sidebar - Features */}
       <div className="w-full xl:w-64 lg:w-60 md:w-56 bg-white dark:bg-gray-800 border-b xl:border-b-0 xl:border-r border-gray-200 dark:border-gray-700 flex flex-col order-1 xl:order-none h-auto xl:h-full shrink-0">
-        {/* 📱 Responsive Header */}
-        <div className="p-2 sm:p-4 border-b border-gray-200 dark:border-gray-700">
-          <div 
-            className="flex items-center p-2 sm:p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors cursor-pointer"
-            onClick={() => {
-              setShowAccountView(true);
-              setSelectedModule('account');
-            }}
-            data-testid="button-account-panel"
-          >
-            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              {sessionInfo?.name ? (
-                <span className="text-white font-bold text-xs sm:text-sm">
-                  {sessionInfo.name.charAt(0).toUpperCase()}
-                </span>
-              ) : (
-                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
-              )}
-            </div>
-            <div className="flex-1 text-center ml-2 sm:ml-3">
-              {sessionInfo ? (
-                <div className="bg-blue-500 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium max-w-full">
-                  <div className="flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-white mr-1 sm:mr-2 flex-shrink-0"></div>
-                    <span className="truncate break-words">{sessionInfo.name}</span>
-                  </div>
-                </div>
-              ) : (
-                <Badge variant="secondary" className="text-xs sm:text-sm px-2 sm:px-3 py-1">
-                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full mr-1 sm:mr-2 bg-gray-400"></div>
-                  <span className="whitespace-nowrap text-xs sm:text-sm">Not Connected</span>
-                </Badge>
-              )}
-            </div>
-          </div>
-          
-
-        </div>
-        
-
-
         {/* 📱 Responsive Features List */}
-        <div className="px-2 sm:px-3 py-2 sm:py-4 space-y-1 sm:space-y-2">
-          {/* 📱 WhatsApp Feature - Touch Friendly */}
+        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 flex-1">
+          {/* 📱 WhatsApp Feature - Expanded */}
           <div 
-            className={`flex items-center p-2 sm:p-3 rounded-lg cursor-pointer transition-colors min-h-[44px] ${
+            className={`flex items-center p-4 sm:p-6 rounded-xl cursor-pointer transition-colors min-h-[60px] ${
               selectedFeature === 'whatsapp' 
                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
                 : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -1477,15 +1436,15 @@ export default function Dashboard() {
             onClick={() => setSelectedFeature('whatsapp')}
             data-testid="button-whatsapp"
           >
-            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0">
-              <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-100 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
             </div>
-            <span className="font-medium ml-2 sm:ml-3 text-sm sm:text-base">WhatsApp</span>
+            <span className="font-semibold ml-3 sm:ml-4 text-base sm:text-lg">WhatsApp</span>
           </div>
 
-          {/* 📱 RCS Feature - Touch Friendly */}
+          {/* 📱 RCS Feature - Expanded */}
           <div 
-            className={`flex items-center p-2 sm:p-3 rounded-lg cursor-pointer transition-colors min-h-[44px] ${
+            className={`flex items-center p-4 sm:p-6 rounded-xl cursor-pointer transition-colors min-h-[60px] ${
               selectedFeature === 'rcs' 
                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
                 : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -1493,11 +1452,10 @@ export default function Dashboard() {
             onClick={() => setSelectedFeature('rcs')}
             data-testid="button-rcs"
           >
-            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
-              <Smartphone className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600 dark:text-purple-400" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
+              <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
             </div>
-            <span className="font-medium ml-2 sm:ml-3 text-sm sm:text-base hidden sm:inline">RCS</span>
-            <span className="font-medium ml-2 sm:ml-3 text-sm sm:text-base sm:hidden">RCS</span>
+            <span className="font-semibold ml-3 sm:ml-4 text-base sm:text-lg">RCS</span>
           </div>
         </div>
         
