@@ -310,16 +310,25 @@ export class WhatsAppSessionManager {
     });
 
     client.on('ready', async () => {
-      console.log(`✅ Session ${sessionId} ready`);
+      console.log(`✅ Session ${sessionId} ready - client info:`, {
+        wid: client.info?.wid?.user,
+        pushname: client.info?.pushname,
+        me: client.info?.me?.user
+      });
       session.isReady = true;
       session.info.status = 'connected';
       
-      // Update session info
-      session.info.number = client.info?.wid?.user || 'unknown';
-      session.info.name = client.info?.pushname || 'unknown';
+      // Update session info with proper fallbacks
+      const phoneNumber = client.info?.wid?.user || client.info?.me?.user || session.info.number;
+      const userName = client.info?.pushname || client.info?.me?.pushname || session.info.name;
+      
+      session.info.number = phoneNumber;
+      session.info.name = userName || `User ${phoneNumber}`;
       session.info.loginTime = new Date().toISOString();
       session.qrCode = null;
       session.info.qrCode = undefined;
+      
+      console.log(`📱 Session ${sessionId} connected as: ${session.info.name} (${session.info.number})`);
 
       // Save session to database
       try {
@@ -334,12 +343,19 @@ export class WhatsAppSessionManager {
         console.log(`Session save failed for ${sessionId}:`, error.message);
       }
 
-      // Broadcast connection
+      // Broadcast connection with additional logging
+      console.log(`📡 Broadcasting account_connected for ${sessionId}`);
       this.broadcastToClients('account_connected', { 
         sessionId, 
         info: session.info 
       });
       this.broadcastSessionUpdate();
+      
+      // Additional force update after connection
+      setTimeout(() => {
+        console.log(`🔄 Force updating session status for ${sessionId}`);
+        this.broadcastSessionUpdate();
+      }, 1000);
     });
 
     client.on('authenticated', () => {
@@ -536,12 +552,27 @@ export class WhatsAppSessionManager {
   }
 
   public async reloginSession(sessionId: string): Promise<void> {
+    console.log(`🔄 Relogin session ${sessionId}`);
+    
+    // Handle legacy session relogin by activating it
+    if (sessionId === 'legacy_session') {
+      try {
+        const legacyService = (global as any).whatsappService;
+        if (legacyService) {
+          console.log('🔄 Reactivating legacy WhatsApp service...');
+          // Force a fresh QR code for legacy service
+          await legacyService.forceRefreshQR();
+          return;
+        }
+      } catch (error: any) {
+        console.warn('Error reactivating legacy session:', error.message);
+      }
+    }
+
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new Error(`Session ${sessionId} not found`);
     }
-
-    console.log(`🔄 Relogin session ${sessionId}`);
 
     // Clean up existing client first
     if (session.client) {
@@ -609,14 +640,25 @@ export class WhatsAppSessionManager {
         const name = legacyService.sessionInfo.name || '';
         const number = legacyService.sessionInfo.number || '';
         
-        // Only add if we have valid name and number data (avoid "Unknown Account")
-        if (name && number) {
+        // Only add if we have valid name and number data and client is actually ready
+        if (name && number && legacyService.isReady && legacyService.client) {
+          // For synchronous check, just verify basic connection status
+          let isActuallyConnected = false;
+          try {
+            // Simple synchronous check - if client exists and isReady is true
+            isActuallyConnected = legacyService.isReady && !!legacyService.client;
+            console.log(`📱 Legacy service status: isReady=${legacyService.isReady}, hasClient=${!!legacyService.client}`);
+          } catch (error: any) {
+            console.log(`⚠️ Legacy service check failed: ${error.message}`);
+            isActuallyConnected = false;
+          }
+          
           // Check if there's already a session with the same name/number from the new session manager
           const existingSession = sessionInfos.find(s => 
             (s.name === name && s.number === number) || s.sessionId === 'legacy_session'
           );
           
-          if (!existingSession) {
+          if (!existingSession && isActuallyConnected) {
             const legacySession: WhatsAppSessionInfo = {
               sessionId: 'legacy_session',
               number: number,
@@ -625,6 +667,11 @@ export class WhatsAppSessionManager {
               status: 'connected',
             };
             sessionInfos.unshift(legacySession); // Add at beginning
+            console.log(`✅ Added verified legacy session: ${name} (${number})`);
+          } else if (!isActuallyConnected) {
+            console.log(`⚠️ Legacy service exists but not properly connected - marking as disconnected`);
+            // Mark legacy service as not ready if it can't actually connect
+            legacyService.isReady = false;
           }
         }
       }
