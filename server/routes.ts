@@ -452,6 +452,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Active account management
+  let activeAccountId: string | null = null;
+
+  // Set active account
+  app.post("/api/active-account", async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      
+      // Validate that the session exists and is connected
+      const session = sessionManager.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      if (!session.isReady) {
+        return res.status(400).json({ error: "Session is not connected. Please connect the account first." });
+      }
+      
+      activeAccountId = sessionId;
+      console.log(`🎯 Active account set to: ${sessionId}`);
+      
+      res.json({ 
+        success: true, 
+        activeAccount: sessionId,
+        message: "Active account updated successfully" 
+      });
+    } catch (error: any) {
+      console.error("Set active account error:", error);
+      res.status(500).json({ error: "Failed to set active account" });
+    }
+  });
+
+  // Get active account
+  app.get("/api/active-account", async (req, res) => {
+    try {
+      // If no active account set, default to first connected session
+      if (!activeAccountId) {
+        const sessions = sessionManager.getAllSessionsInfo();
+        const connectedSession = sessions.find(s => s.status === 'connected');
+        if (connectedSession) {
+          activeAccountId = connectedSession.sessionId;
+        }
+      }
+      
+      res.json({ 
+        activeAccount: activeAccountId,
+        message: activeAccountId ? "Active account retrieved" : "No active account set" 
+      });
+    } catch (error: any) {
+      console.error("Get active account error:", error);
+      res.status(500).json({ error: "Failed to get active account" });
+    }
+  });
+
   // Send message from specific session
   app.post("/api/accounts/:sessionId/send-message", async (req, res) => {
     try {
@@ -593,15 +647,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  // Send message
+  // Send message from active account
   app.post("/api/send-message", async (req, res) => {
     try {
+      // Get active account or use first connected session
+      let targetSession = activeAccountId;
+      if (!targetSession) {
+        const sessions = sessionManager.getAllSessionsInfo();
+        const connectedSession = sessions.find(s => s.status === 'connected');
+        if (!connectedSession) {
+          return res.status(503).json({ error: "No WhatsApp accounts connected. Please connect an account first." });
+        }
+        targetSession = connectedSession.sessionId;
+        activeAccountId = targetSession; // Auto-set as active
+      }
+
       const parsed = sendMessageSchema.parse(req.body);
-      const result = await whatsappService.sendMessage(
+      const result = await sessionManager.sendMessage(
+        targetSession,
         parsed.phoneNumber,
         parsed.message
       );
-      res.json({ success: true, messageId: result.messageId });
+      res.json({ success: true, messageId: result.id });
     } catch (error) {
       console.error("Send message error:", error);
       res.status(500).json({ 
@@ -610,7 +677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Send media message
+  // Send media message from active account
   app.post("/api/send-media-message", upload.single('media'), async (req, res) => {
     try {
       if (!req.file) {
@@ -629,19 +696,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Uploaded file not found" });
       }
 
+      // Get active account or use first connected session
+      let targetSession = activeAccountId;
+      if (!targetSession) {
+        const sessions = sessionManager.getAllSessionsInfo();
+        const connectedSession = sessions.find(s => s.status === 'connected');
+        if (!connectedSession) {
+          return res.status(503).json({ error: "No WhatsApp accounts connected. Please connect an account first." });
+        }
+        targetSession = connectedSession.sessionId;
+        activeAccountId = targetSession; // Auto-set as active
+      }
+
       const parsed = sendMediaMessageSchema.parse({
         phoneNumber: req.body.phoneNumber,
         message: req.body.message,
       });
 
-      const result = await whatsappService.sendMediaMessage(
+      const result = await sessionManager.sendMediaMessage(
+        targetSession,
         parsed.phoneNumber,
         parsed.message || '',
         req.file.path,
         req.file.originalname || 'media'
       );
       
-      res.json({ success: true, messageId: result.messageId, fileName: result.fileName });
+      res.json({ success: true, messageId: result.id, fileName: req.file.originalname });
       
       // Clean up uploaded file after successful send
       if (req.file?.path && fs.existsSync(req.file.path)) {
@@ -675,15 +755,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all chats from connected WhatsApp device (sorted by latest activity)
+  // Get all chats from active WhatsApp account (sorted by latest activity)
   app.get("/api/chats", async (req, res) => {
     try {
-      // Check if any session is connected
-      const sessions = sessionManager.getAllSessionsInfo();
-      const connectedSession = sessions.find(s => s.status === 'connected');
-      
-      if (!connectedSession) {
-        return res.status(503).json({ error: "No WhatsApp accounts connected" });
+      // Get active account or use first connected session
+      let targetSession = activeAccountId;
+      if (!targetSession) {
+        const sessions = sessionManager.getAllSessionsInfo();
+        const connectedSession = sessions.find(s => s.status === 'connected');
+        if (!connectedSession) {
+          return res.status(503).json({ error: "No WhatsApp accounts connected" });
+        }
+        targetSession = connectedSession.sessionId;
+        activeAccountId = targetSession; // Auto-set as active
       }
 
       // Disable caching for chats to ensure fresh data
@@ -691,7 +775,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       
-      const chats = await sessionManager.getChats(connectedSession.sessionId);
+      const chats = await sessionManager.getChats(targetSession);
       res.json(chats);
     } catch (error: any) {
       console.error("Get chats error:", error);
@@ -835,15 +919,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all groups from connected WhatsApp device
+  // Get all groups from active WhatsApp account
   app.get("/api/groups", async (req, res) => {
     try {
-      // Check if any session is connected
-      const sessions = sessionManager.getAllSessionsInfo();
-      const connectedSession = sessions.find(s => s.status === 'connected');
-      
-      if (!connectedSession) {
-        return res.status(503).json({ error: "No WhatsApp accounts connected" });
+      // Get active account or use first connected session
+      let targetSession = activeAccountId;
+      if (!targetSession) {
+        const sessions = sessionManager.getAllSessionsInfo();
+        const connectedSession = sessions.find(s => s.status === 'connected');
+        if (!connectedSession) {
+          return res.status(503).json({ error: "No WhatsApp accounts connected" });
+        }
+        targetSession = connectedSession.sessionId;
+        activeAccountId = targetSession; // Auto-set as active
       }
 
       // Disable caching for groups to ensure fresh data
@@ -851,7 +939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       
-      const groups = await sessionManager.getGroups(connectedSession.sessionId);
+      const groups = await sessionManager.getGroups(targetSession);
       res.json(groups);
     } catch (error: any) {
       console.error("Get groups error:", error);

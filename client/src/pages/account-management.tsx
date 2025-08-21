@@ -1,36 +1,45 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { StatusBanner } from "@/components/ui/status-banner";
-import { AuthenticationCard } from "@/components/ui/authentication-card";
-import { UserProfileCard } from "@/components/ui/user-profile-card";
+import { Switch } from "@/components/ui/switch";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Plus, Users, LogOut } from "lucide-react";
 import { useLocation } from "wouter";
 
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { SessionInfo } from "@shared/schema";
 
+interface WhatsAppAccount {
+  sessionId: string;
+  name: string;
+  number: string;
+  status: 'connected' | 'disconnected' | 'qr_required' | 'connecting';
+  loginTime: string;
+}
+
 export default function AccountManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const [activeAccount, setActiveAccount] = useState<string | null>(null);
+  const [showAddAccount, setShowAddAccount] = useState(false);
 
-  // Fetch session info - much slower polling to reduce requests
-  const { data: sessionInfo, isLoading: sessionLoading, error: sessionError } = useQuery({
-    queryKey: ['/api/session-info'],
-    refetchInterval: 10000, // Poll every 10 seconds
-    staleTime: 8000, // Cache for 8 seconds
-    retry: false, // Don't retry on 404 (no session)
+  // Fetch all WhatsApp accounts
+  const { data: accountsData, isLoading: accountsLoading } = useQuery<{accounts: WhatsAppAccount[]}>({
+    queryKey: ['/api/accounts'],
+    refetchInterval: 5000, // Poll every 5 seconds
+    staleTime: 3000, // Cache for 3 seconds
   });
 
-  // Fetch QR code only when needed - poll when no session
-  const { data: qrData, isLoading: qrLoading, refetch: refetchQR } = useQuery<{qr?: string | null}>({
+  // Fetch QR code for adding new accounts
+  const { data: qrData, isLoading: qrLoading } = useQuery<{qr?: string | null}>({
     queryKey: ['/api/get-qr'],
-    enabled: !sessionInfo, // Only enabled when no session
-    refetchInterval: !sessionInfo ? 5000 : false, // Poll every 5s when no session
+    enabled: showAddAccount, // Only enabled when adding account
+    refetchInterval: showAddAccount ? 5000 : false, // Poll when adding account
     staleTime: 3000, // Cache QR for 3 seconds
   });
 
@@ -41,115 +50,105 @@ export default function AccountManagement() {
     staleTime: 50000, // Cache for 50 seconds
   });
 
-  // Logout mutation with automated session clearing and QR refresh
+  // Get active account (first connected account by default)
+  const accounts = accountsData?.accounts || [];
+  const connectedAccounts = accounts.filter(acc => acc.status === 'connected');
+  const disconnectedAccounts = accounts.filter(acc => acc.status === 'disconnected');
+  
+  // Set default active account to first connected account
+  useEffect(() => {
+    if (connectedAccounts.length > 0 && !activeAccount) {
+      const savedActive = localStorage.getItem('activeWhatsAppAccount');
+      if (savedActive && connectedAccounts.find(acc => acc.sessionId === savedActive)) {
+        setActiveAccount(savedActive);
+      } else {
+        setActiveAccount(connectedAccounts[0].sessionId);
+      }
+    }
+  }, [connectedAccounts, activeAccount]);
+
+  // Logout mutation for specific account
   const logoutMutation = useMutation({
-    mutationFn: () => apiRequest('/api/logout', 'POST'),
-    onSuccess: () => {
-      // Automatically clear stored authentication and all session data
-      queryClient.clear();
-      sessionStorage.clear();
-      localStorage.clear();
+    mutationFn: (sessionId: string) => apiRequest(`/api/accounts/${sessionId}/logout`, 'POST'),
+    onSuccess: (_, sessionId) => {
+      // Refresh accounts list
+      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
       
-      // Immediately invalidate and refetch to get new QR code
-      queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/get-qr'] });
-      
-      // Force refresh QR code to ensure new one is generated
-      apiRequest('/api/refresh-qr', 'POST').then(() => {
-        // After QR refresh, refetch the new QR code
-        setTimeout(() => {
-          queryClient.refetchQueries({ queryKey: ['/api/get-qr'] });
-          queryClient.refetchQueries({ queryKey: ['/api/session-info'] });
-        }, 2000);
-      }).catch((refreshError) => {
-        console.error("QR refresh error:", refreshError);
-        // Still try to refetch even if refresh fails
-        setTimeout(() => {
-          queryClient.refetchQueries({ queryKey: ['/api/get-qr'] });
-          queryClient.refetchQueries({ queryKey: ['/api/session-info'] });
-        }, 2000);
-      });
+      // If active account was logged out, switch to next available
+      if (activeAccount === sessionId) {
+        const remaining = connectedAccounts.filter(acc => acc.sessionId !== sessionId);
+        if (remaining.length > 0) {
+          setActiveAccount(remaining[0].sessionId);
+        } else {
+          setActiveAccount(null);
+        }
+      }
       
       toast({
         title: "Success",
-        description: "Successfully logged out from WhatsApp. New QR code is being generated...",
+        description: "Account logged out successfully",
       });
     },
     onError: (error: any) => {
-      // Logout should always clear session even if there's an error
-      queryClient.clear();
-      sessionStorage.clear();
-      localStorage.clear();
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/get-qr'] });
-      
-      // Force QR refresh even on error
-      apiRequest('/api/refresh-qr', 'POST').then(() => {
-        setTimeout(() => {
-          queryClient.refetchQueries({ queryKey: ['/api/get-qr'] });
-          queryClient.refetchQueries({ queryKey: ['/api/session-info'] });
-        }, 2000);
-      }).catch(() => {
-        // Force refetch even on refresh error
-        setTimeout(() => {
-          queryClient.refetchQueries({ queryKey: ['/api/get-qr'] });
-          queryClient.refetchQueries({ queryKey: ['/api/session-info'] });
-        }, 2000);
-      });
-      
       toast({
-        title: "Logged Out",
-        description: "Session cleared automatically. New QR code is being generated.",
+        title: "Error",
+        description: "Failed to logout account",
+        variant: "destructive",
       });
     },
   });
 
-  const handleLogout = () => {
-    logoutMutation.mutate();
+  const handleLogout = (sessionId: string) => {
+    logoutMutation.mutate(sessionId);
   };
 
-  const handleRefreshQR = async () => {
-    try {
-      // Call the backend to force refresh QR
-      await apiRequest('/api/refresh-qr', 'POST');
+  // Mutation to set active account on backend
+  const setActiveAccountMutation = useMutation({
+    mutationFn: (sessionId: string) => apiRequest('/api/active-account', 'POST', { sessionId }),
+    onSuccess: (data, sessionId) => {
+      setActiveAccount(sessionId);
+      localStorage.setItem('activeWhatsAppAccount', sessionId);
       
-      // Wait a moment for QR to generate, then refetch
-      setTimeout(() => {
-        refetchQR();
-        queryClient.invalidateQueries({ queryKey: ['/api/get-qr'] });
-      }, 1000);
+      // Refresh data for the new active account
+      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
       
       toast({
-        title: "QR Code Refreshed", 
-        description: "A new QR code is being generated",
+        title: "Account Activated",
+        description: `Switched to ${accounts.find(acc => acc.sessionId === sessionId)?.name || 'account'}`,
       });
-    } catch (error) {
-      console.error('QR refresh error:', error);
-      // Still try to refetch in case it works
-      refetchQR();
+    },
+    onError: (error: any) => {
       toast({
-        title: "QR Refresh Attempted",
-        description: "Attempting to generate new QR code",
+        title: "Error",
+        description: "Failed to activate account",
+        variant: "destructive",
       });
+    },
+  });
+
+  const handleActivateAccount = (sessionId: string, isActive: boolean) => {
+    if (isActive) {
+      setActiveAccountMutation.mutate(sessionId);
     }
   };
 
-  const handleRetryConnection = () => {
-    queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/get-qr'] });
+  const handleAddAccount = () => {
+    setShowAddAccount(true);
   };
 
-  // Store user name when connected but don't auto-redirect
-  useEffect(() => {
-    if (sessionInfo && (sessionInfo as any).name && (sessionInfo as any).name !== "Fetching..." && (sessionInfo as any).name !== "WhatsApp User") {
-      // Store last user name for re-login feature
-      localStorage.setItem('lastWhatsAppUser', (sessionInfo as any).name);
-      
-      // Don't auto-redirect - let user manually go to dashboard
-      // Users can manually click to go to dashboard when ready
-    }
-  }, [sessionInfo]);
+  const handleCancelAddAccount = () => {
+    setShowAddAccount(false);
+  };
+
+  const getInitials = (name: string) => {
+    return name.charAt(0).toUpperCase();
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return `${date.toLocaleDateString()}, ${date.toLocaleTimeString()}`;
+  };
 
   return (
     <div className="bg-background font-sans min-h-screen">
@@ -176,19 +175,158 @@ export default function AccountManagement() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Full Screen Authentication Card */}
-        <div className="w-full">
-          <AuthenticationCard
-            sessionInfo={sessionInfo}
-            qrData={qrData}
-            isLoading={sessionLoading || qrLoading}
-            isLogoutPending={logoutMutation.isPending}
-            onLogout={handleLogout}
-            onRefreshQR={handleRefreshQR}
-            onRetryConnection={handleRetryConnection}
-            lastUserName={localStorage.getItem('lastWhatsAppUser') || undefined}
-          />
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Users className="h-6 w-6 text-muted-foreground" />
+            <h1 className="text-2xl font-bold text-foreground">WhatsApp Accounts</h1>
+          </div>
+          <Button onClick={handleAddAccount} className="flex items-center space-x-2">
+            <Plus className="h-4 w-4" />
+            <span>Add Account</span>
+          </Button>
         </div>
+        
+        <p className="text-muted-foreground mb-8">Manage multiple WhatsApp accounts from a unified dashboard</p>
+
+        {/* Show QR code when adding new account */}
+        {showAddAccount && (
+          <Card className="mb-6">
+            <CardContent className="p-8">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold mb-4">Scan QR Code to Add Account</h2>
+                {qrData?.qr && (
+                  <div className="mb-4">
+                    <img
+                      src={qrData.qr.startsWith('data:') ? qrData.qr : `data:image/png;base64,${qrData.qr}`}
+                      alt="QR Code for WhatsApp Authentication"
+                      className="w-64 h-64 mx-auto rounded-xl border"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+                <Button variant="outline" onClick={handleCancelAddAccount}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Connected Accounts */}
+        {connectedAccounts.length > 0 && (
+          <div className="space-y-4 mb-8">
+            {connectedAccounts.map((account) => (
+              <Card key={account.sessionId} className="relative">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-4">
+                    <Avatar className="w-12 h-12">
+                      <AvatarFallback className="bg-green-500 text-white text-lg font-bold">
+                        {getInitials(account.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-foreground">{account.name}</h3>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm text-green-600">Connected</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Connected: {formatDate(account.loginTime)}
+                      </p>
+                    </div>
+
+                    {/* Activation Switch - only for connected accounts */}
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={activeAccount === account.sessionId}
+                          onCheckedChange={(checked) => handleActivateAccount(account.sessionId, checked)}
+                          disabled={activeAccount === account.sessionId || setActiveAccountMutation.isPending} // Prevent deactivating the active account
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          {activeAccount === account.sessionId ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleLogout(account.sessionId)}
+                        disabled={logoutMutation.isPending}
+                        className="hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                      >
+                        <LogOut className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Disconnected Accounts - No switches shown */}
+        {disconnectedAccounts.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-muted-foreground">Disconnected Accounts</h2>
+            {disconnectedAccounts.map((account) => (
+              <Card key={account.sessionId} className="opacity-60">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-4">
+                    <Avatar className="w-12 h-12">
+                      <AvatarFallback className="bg-gray-400 text-white text-lg font-bold">
+                        {account.name ? getInitials(account.name) : '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-foreground">
+                        {account.name || 'Disconnected Account'}
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <span className="text-sm text-gray-500">Disconnected</span>
+                      </div>
+                      {account.loginTime && (
+                        <p className="text-sm text-muted-foreground">
+                          Last connected: {formatDate(account.loginTime)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* No switches for disconnected accounts - just reconnect option */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {}}
+                      className="text-blue-600 hover:bg-blue-50 hover:border-blue-300"
+                    >
+                      Reconnect
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* No accounts message */}
+        {accounts.length === 0 && !accountsLoading && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Users className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <h2 className="text-xl font-semibold text-foreground mb-2">No WhatsApp Accounts</h2>
+              <p className="text-muted-foreground mb-6">
+                Add your first WhatsApp account to get started with bulk messaging
+              </p>
+              <Button onClick={handleAddAccount} className="flex items-center space-x-2 mx-auto">
+                <Plus className="h-4 w-4" />
+                <span>Add Account</span>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );
