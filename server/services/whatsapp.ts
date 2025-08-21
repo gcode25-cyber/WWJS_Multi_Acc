@@ -1150,14 +1150,22 @@ export class WhatsAppService {
       return {
         contact: {
           id: chatId,
-          name: 'Unknown Contact',
+          name: '📱 Please scan QR code to connect WhatsApp',
           number: chatId.split('@')[0],
           isMyContact: false,
           isWAContact: false,
           profilePicUrl: null,
           isGroup: chatId.includes('@g.us')
         },
-        messages: []
+        messages: [{
+          id: 'system-message',
+          body: '📱 To view this chat, please scan the QR code with your WhatsApp mobile app first.',
+          timestamp: Date.now(),
+          fromMe: false,
+          type: 'system',
+          author: 'System',
+          hasMedia: false
+        }]
       };
     }
 
@@ -1275,18 +1283,26 @@ export class WhatsAppService {
         console.log('🔌 Connection lost during chat history fetch - updating status');
         this.isReady = false;
         
-        // Return a fallback empty response instead of throwing
+        // Return a fallback response with helpful message
         return {
           contact: {
             id: chatId,
-            name: 'Unknown Contact',
+            name: '📱 WhatsApp disconnected - please reconnect',
             number: chatId.split('@')[0],
             isMyContact: false,
             isWAContact: false,
             profilePicUrl: null,
             isGroup: chatId.includes('@g.us')
           },
-          messages: []
+          messages: [{
+            id: 'system-error',
+            body: '⚠️ WhatsApp connection was lost. Please scan the QR code again to reconnect and view this chat.',
+            timestamp: Date.now(),
+            fromMe: false,
+            type: 'system',
+            author: 'System',
+            hasMedia: false
+          }]
         };
       }
       
