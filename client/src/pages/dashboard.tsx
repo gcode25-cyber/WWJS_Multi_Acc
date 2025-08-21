@@ -3460,7 +3460,7 @@ export default function Dashboard() {
                 
                 {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pr-2 min-h-0">
-                  {!sessionInfo ? (
+                  {!hasConnectedSession ? (
                     <div className="text-center p-8">
                       <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">Connect WhatsApp</h3>
@@ -3554,7 +3554,7 @@ export default function Dashboard() {
                 
                 {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-6 pr-2 min-h-0">
-                  {!sessionInfo ? (
+                  {!hasConnectedSession ? (
                     <div className="text-center p-8">
                       <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">Connect WhatsApp</h3>
