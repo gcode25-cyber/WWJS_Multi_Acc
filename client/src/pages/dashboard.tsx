@@ -327,6 +327,17 @@ export default function Dashboard() {
     setIsLoadingMore(false);
   }, [!!sessionInfo]); // Trigger when sessionInfo changes from null to data or vice versa
 
+  // Additional effect to re-fetch contacts when sessionInfo becomes available
+  useEffect(() => {
+    if (sessionInfo && sessionInfo.name && sessionInfo.number) {
+      // Session is now fully available - invalidate contacts to ensure full list loads
+      console.log('📱 Session fully established, refreshing contacts...');
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      }, 100);
+    }
+  }, [sessionInfo?.name, sessionInfo?.number, queryClient]); // Watch for actual session data
+
   // Handle contacts pagination response with progressive loading
   useEffect(() => {
     if (contactsResponse) {
@@ -502,13 +513,19 @@ export default function Dashboard() {
           console.log('📱 WhatsApp connected via legacy event! Refreshing all data...');
           queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
           
-          // Use setTimeout to ensure session-info loads first
+          // Use longer timeout to ensure session is fully established
           setTimeout(() => {
-            queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-            queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
-            queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-            console.log('🔄 Data queries invalidated after legacy connection');
-          }, 100);
+            // Check if session is actually ready before invalidating
+            queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
+            
+            // Wait additional time for session to be established
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+              queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
+              queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+              console.log('🔄 Data queries invalidated after legacy session established');
+            }, 500); // Additional delay for session establishment
+          }, 200);
           break;
         case 'connection_status':
           // Handle robust real-time connection status updates (like WhatsApp Web)
@@ -520,13 +537,19 @@ export default function Dashboard() {
             if (isConnected && message.data.sessionInfo) {
               queryClient.setQueryData(['/api/session-info'], message.data.sessionInfo);
               
-              // Refresh data when phone reconnects - use timeout for proper sequencing
+              // Refresh data when phone reconnects - use longer timeout for proper sequencing
               setTimeout(() => {
-                queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-                queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
-                queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-                console.log('🔄 Data queries invalidated after real-time connection');
-              }, 100);
+                // Double-check session is ready
+                queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
+                
+                // Wait for session to be fully established
+                setTimeout(() => {
+                  queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+                  queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
+                  queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+                  console.log('🔄 Data queries invalidated after real-time session established');
+                }, 500); // Additional delay for session establishment
+              }, 200);
             } else if (!isConnected) {
               // Clear session data when phone disconnects
               queryClient.setQueryData(['/api/session-info'], null);
@@ -590,13 +613,19 @@ export default function Dashboard() {
           queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
           queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
           
-          // Use setTimeout to ensure session-info loads first, then invalidate data queries
+          // Use longer timeout to ensure session is fully established before loading data
           setTimeout(() => {
-            queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-            queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
-            console.log('🔄 Data queries invalidated after connection');
-          }, 100);
+            // Check if session is actually ready before invalidating
+            queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
+            
+            // Wait additional time for session to be established
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+              queryClient.invalidateQueries({ queryKey: ['contacts'] }); // This matches the pagination query
+              console.log('🔄 Data queries invalidated after session established');
+            }, 500); // Additional delay for session establishment
+          }, 200);
           
           if (message.data?.sessionId) {
             setAccountQRCodes(prev => {
