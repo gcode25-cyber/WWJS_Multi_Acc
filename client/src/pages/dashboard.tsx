@@ -243,12 +243,13 @@ export default function Dashboard() {
         throw new Error('Failed to fetch accounts');
       }
       const data = await response.json();
+      console.log('🔄 Accounts fetched:', data.accounts);
       return data.accounts || [];
     },
     enabled: true, // Always enabled since we need currentSessionId for all modules
-    staleTime: 30000, // Fresh for 30 seconds
+    staleTime: 5000, // Reduced stale time for fresher data
     gcTime: 5 * 60 * 1000, // Cache for 5 minutes
-    refetchInterval: 10000, // Always refresh every 10 seconds for session status updates
+    refetchInterval: 5000, // More frequent refresh for session status updates
   });
 
   // State for chats pagination
@@ -257,6 +258,12 @@ export default function Dashboard() {
   
   // Get the currently connected account sessionId
   const currentSessionId = whatsappAccounts.find(acc => acc.status === 'connected')?.sessionId;
+  
+  // Debug logging for session detection
+  useEffect(() => {
+    console.log('🔍 WhatsApp accounts:', whatsappAccounts);
+    console.log('🎯 Current session ID:', currentSessionId);
+  }, [whatsappAccounts, currentSessionId]);
 
   // Fetch chats with pagination and real-time updates
   const { data: chatsResponse, isLoading: chatsLoading } = useQuery<{
@@ -303,8 +310,8 @@ export default function Dashboard() {
       return false;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
-    refetchInterval: false, // Disable automatic refetch since we use WebSocket updates
-    staleTime: 30000, // Cache for 30 seconds
+    refetchInterval: !!currentSessionId ? 30000 : false, // Periodic refresh when connected
+    staleTime: 10000, // Reduced cache time for fresher data
   });
   
   // Extract chats from paginated response
@@ -361,8 +368,8 @@ export default function Dashboard() {
       return false;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
-    refetchInterval: false,
-    staleTime: 30000 // Cache for 30 seconds
+    refetchInterval: !!currentSessionId ? 30000 : false, // Periodic refresh when connected
+    staleTime: 10000 // Reduced cache time for fresher data
   });
 
   // Reset contacts pagination when WhatsApp connects/disconnects
@@ -485,8 +492,8 @@ export default function Dashboard() {
       return false;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
-    refetchInterval: false, // Disable automatic refetch since we use WebSocket updates
-    staleTime: 30000, // Cache for 30 seconds
+    refetchInterval: !!currentSessionId ? 30000 : false, // Periodic refresh when connected
+    staleTime: 10000, // Reduced cache time for fresher data
   });
   
   // Extract groups from paginated response
