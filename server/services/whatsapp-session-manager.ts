@@ -113,9 +113,20 @@ export class WhatsAppSessionManager {
         }
       }
 
-      // Filter out and remove any sessions without proper names/numbers
+      // Filter out sessions but preserve those that are actively waiting for authentication
       const validSessions = Array.from(this.sessions.entries()).filter(([id, session]) => {
-        return session.info.name && session.info.number && session.info.name !== 'Unknown Account';
+        // Keep sessions that are actively being set up (QR required/connecting)
+        if (session.info.status === 'qr_required' || session.info.status === 'connecting') {
+          console.log(`📋 Preserving active session: ${id} (${session.info.status})`);
+          return true;
+        }
+        
+        // Keep sessions with valid stored account data
+        const hasValidData = session.info.name && session.info.number && session.info.name !== 'Unknown Account';
+        if (hasValidData) {
+          console.log(`📋 Preserving valid session: ${id} (${session.info.name})`);
+        }
+        return hasValidData;
       });
       
       // Keep only valid sessions
@@ -618,14 +629,17 @@ export class WhatsAppSessionManager {
     const sessionInfos = Array.from(this.sessions.values())
       .map(s => s.info)
       .filter(info => {
-        // Only include sessions that have valid name and number
-        if (!info.name || !info.number || info.name === 'Unknown Account') return false;
+        // Reject only explicitly "Unknown Account" entries
+        if (info.name === 'Unknown Account') return false;
+        
+        // Include sessions that are actively waiting for QR authentication (even without name/number)
+        if (info.status === 'qr_required' || info.status === 'connecting') return true;
+        
+        // For other statuses, require valid name and number
+        if (!info.name || !info.number) return false;
         
         // Include connected sessions with valid data
         if (info.status === 'connected') return true;
-        
-        // Include sessions that are actively waiting for QR authentication  
-        if (info.status === 'qr_required' || info.status === 'connecting') return true;
         
         // Include disconnected sessions that have valid name and number (for relogin)
         if (info.status === 'disconnected') return true;
