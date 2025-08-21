@@ -477,8 +477,8 @@ export class WhatsAppSessionManager {
     this.sessions.delete(sessionId);
     this.messageCache.delete(sessionId);
 
-    // Clear from database
-    await storage.clearAllSessions();
+    // Session is already removed from memory (which is what getAllSessionsInfo() uses)
+    // No need to clear database storage since we read from memory
 
     this.broadcastToClients('account_removed', { sessionId });
     this.broadcastSessionUpdate();
