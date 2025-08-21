@@ -669,14 +669,27 @@ export class WhatsAppSessionManager {
     }
 
     const contacts = await session.client.getContacts();
-    return contacts.map((contact: any) => ({
+    
+    // Filter contacts to only show saved contacts from phone's address book
+    const filteredContacts = contacts.filter((contact: any) => {
+      return contact.isMyContact && 
+             contact.isWAContact && 
+             contact.name && 
+             contact.name !== contact.id.user && // Has a real name, not just phone number
+             !contact.id._serialized.includes('@g.us') && // Exclude groups
+             !contact.id._serialized.includes('status@broadcast') && // Exclude status broadcasts
+             contact.number && // Has a phone number
+             contact.number !== contact.id.user; // Number is different from ID (indicates proper contact)
+    });
+    
+    return filteredContacts.map((contact: any) => ({
       id: contact.id._serialized,
       name: contact.name || contact.pushname || contact.id.user,
       number: contact.number || contact.id.user,
       isMyContact: contact.isMyContact,
       isWAContact: contact.isWAContact,
       profilePicUrl: null,
-      isGroup: contact.isGroup
+      isGroup: contact.isGroup || false
     }));
   }
 

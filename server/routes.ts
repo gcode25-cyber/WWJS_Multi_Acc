@@ -790,16 +790,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const contacts = await sessionManager.getContacts(connectedSession.sessionId);
       
-      // Filter to show only saved contacts (local contacts from phone)
-      const savedContacts = contacts.filter(contact => {
-        return contact.isMyContact && // Only saved contacts
-               contact.isWAContact && // Only WhatsApp users
-               contact.name &&        // Must have a name
-               !contact.isGroup;      // Exclude group contacts
-      });
-      
-      // Filter out invalid phone numbers
-      const validContacts = savedContacts.filter(contact => {
+      // Additional validation for phone numbers (filtering already done in sessionManager)
+      const validContacts = contacts.filter(contact => {
         return isValidPhoneNumber(contact.number || contact.id);
       });
 
