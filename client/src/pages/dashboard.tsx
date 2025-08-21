@@ -1521,6 +1521,20 @@ export default function Dashboard() {
               
               <div 
                 className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                  selectedModule === 'account' 
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                onClick={() => setSelectedModule('account')}
+              >
+                <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
+                  <User className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="font-medium text-sm">Accounts</div>
+              </div>
+              
+              <div 
+                className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
                   selectedModule === 'contacts' 
                     ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
                     : 'hover:bg-gray-100 dark:hover:bg-gray-700'
