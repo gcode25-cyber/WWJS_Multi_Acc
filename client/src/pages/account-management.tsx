@@ -27,6 +27,12 @@ export default function AccountManagement() {
   const [, setLocation] = useLocation();
   const [activeAccount, setActiveAccount] = useState<string | null>(null);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  
+  // Track which specific account is being processed
+  const [processingAccount, setProcessingAccount] = useState<{
+    sessionId: string;
+    action: 'logout' | 'relogin' | 'delete' | 'activate';
+  } | null>(null);
 
   // Fetch all WhatsApp accounts
   const { data: accountsData, isLoading: accountsLoading } = useQuery<{accounts: WhatsAppAccount[]}>({
@@ -77,7 +83,10 @@ export default function AccountManagement() {
 
   // Logout mutation for specific account
   const logoutMutation = useMutation({
-    mutationFn: (sessionId: string) => apiRequest(`/api/accounts/${sessionId}/logout`, 'POST'),
+    mutationFn: (sessionId: string) => {
+      setProcessingAccount({ sessionId, action: 'logout' });
+      return apiRequest(`/api/accounts/${sessionId}/logout`, 'POST');
+    },
     onSuccess: (_, sessionId) => {
       // Refresh accounts list
       queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
@@ -92,15 +101,65 @@ export default function AccountManagement() {
         }
       }
       
+      setProcessingAccount(null);
       toast({
         title: "Success",
         description: "Account logged out successfully",
       });
     },
     onError: (error: any) => {
+      setProcessingAccount(null);
       toast({
         title: "Error",
         description: "Failed to logout account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Relogin mutation for specific account
+  const reloginMutation = useMutation({
+    mutationFn: (sessionId: string) => {
+      setProcessingAccount({ sessionId, action: 'relogin' });
+      return apiRequest(`/api/accounts/${sessionId}/relogin`, 'POST');
+    },
+    onSuccess: (_, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+      setProcessingAccount(null);
+      toast({
+        title: "Success",
+        description: "Account relogin initiated",
+      });
+    },
+    onError: (error: any) => {
+      setProcessingAccount(null);
+      toast({
+        title: "Error",
+        description: "Failed to relogin account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete mutation for specific account
+  const deleteMutation = useMutation({
+    mutationFn: (sessionId: string) => {
+      setProcessingAccount({ sessionId, action: 'delete' });
+      return apiRequest(`/api/accounts/${sessionId}`, 'DELETE');
+    },
+    onSuccess: (_, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+      setProcessingAccount(null);
+      toast({
+        title: "Success",
+        description: "Account deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      setProcessingAccount(null);
+      toast({
+        title: "Error",
+        description: "Failed to delete account",
         variant: "destructive",
       });
     },
@@ -110,9 +169,20 @@ export default function AccountManagement() {
     logoutMutation.mutate(sessionId);
   };
 
+  const handleRelogin = (sessionId: string) => {
+    reloginMutation.mutate(sessionId);
+  };
+
+  const handleDelete = (sessionId: string) => {
+    deleteMutation.mutate(sessionId);
+  };
+
   // Mutation to set active account on backend
   const setActiveAccountMutation = useMutation({
-    mutationFn: (sessionId: string) => apiRequest('/api/active-account', 'POST', { sessionId }),
+    mutationFn: (sessionId: string) => {
+      setProcessingAccount({ sessionId, action: 'activate' });
+      return apiRequest('/api/active-account', 'POST', { sessionId });
+    },
     onSuccess: (data, sessionId) => {
       setActiveAccount(sessionId);
       localStorage.setItem('activeWhatsAppAccount', sessionId);
@@ -121,12 +191,14 @@ export default function AccountManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
       
+      setProcessingAccount(null);
       toast({
         title: "Account Activated",
         description: `Switched to ${accounts.find(acc => acc.sessionId === sessionId)?.name || 'account'}`,
       });
     },
     onError: (error: any) => {
+      setProcessingAccount(null);
       toast({
         title: "Error",
         description: "Failed to activate account",
@@ -250,7 +322,7 @@ export default function AccountManagement() {
                         <Switch
                           checked={activeAccount === account.sessionId}
                           onCheckedChange={(checked) => handleActivateAccount(account.sessionId, checked)}
-                          disabled={activeAccount === account.sessionId || setActiveAccountMutation.isPending} // Prevent deactivating the active account
+                          disabled={activeAccount === account.sessionId || (processingAccount?.sessionId === account.sessionId && processingAccount?.action === 'activate')} // Prevent deactivating the active account
                         />
                         <span className="text-sm text-muted-foreground">
                           {activeAccount === account.sessionId ? 'Active' : 'Inactive'}
@@ -261,10 +333,14 @@ export default function AccountManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleLogout(account.sessionId)}
-                        disabled={logoutMutation.isPending}
+                        disabled={processingAccount?.sessionId === account.sessionId && processingAccount?.action === 'logout'}
                         className="hover:bg-red-50 hover:border-red-300 hover:text-red-600"
                       >
-                        <LogOut className="h-4 w-4" />
+                        {processingAccount?.sessionId === account.sessionId && processingAccount?.action === 'logout' ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-red-600"></div>
+                        ) : (
+                          <LogOut className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -303,15 +379,35 @@ export default function AccountManagement() {
                       )}
                     </div>
 
-                    {/* No switches for disconnected accounts - just reconnect option */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {}}
-                      className="text-blue-600 hover:bg-blue-50 hover:border-blue-300"
-                    >
-                      Reconnect
-                    </Button>
+                    {/* Action buttons for disconnected accounts */}
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRelogin(account.sessionId)}
+                        disabled={processingAccount?.sessionId === account.sessionId && processingAccount?.action === 'relogin'}
+                        className="text-blue-600 hover:bg-blue-50 hover:border-blue-300"
+                      >
+                        {processingAccount?.sessionId === account.sessionId && processingAccount?.action === 'relogin' ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600"></div>
+                        ) : (
+                          'Relogin'
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(account.sessionId)}
+                        disabled={processingAccount?.sessionId === account.sessionId && processingAccount?.action === 'delete'}
+                        className="text-red-600 hover:bg-red-50 hover:border-red-300"
+                      >
+                        {processingAccount?.sessionId === account.sessionId && processingAccount?.action === 'delete' ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-red-600"></div>
+                        ) : (
+                          'Delete'
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
