@@ -263,7 +263,17 @@ export default function Dashboard() {
   useEffect(() => {
     console.log('🔍 WhatsApp accounts:', whatsappAccounts);
     console.log('🎯 Current session ID:', currentSessionId);
-  }, [whatsappAccounts, currentSessionId]);
+    
+    // Force refresh queries when session is detected
+    if (currentSessionId) {
+      console.log('✅ Session detected, force refreshing data queries...');
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['chats'] });
+        queryClient.invalidateQueries({ queryKey: ['contacts'] });
+        queryClient.invalidateQueries({ queryKey: ['groups'] });
+      }, 100);
+    }
+  }, [whatsappAccounts, currentSessionId, queryClient]);
 
   // Fetch chats with pagination and real-time updates
   const { data: chatsResponse, isLoading: chatsLoading } = useQuery<{
@@ -283,6 +293,8 @@ export default function Dashboard() {
         throw new Error('No connected WhatsApp account found');
       }
       
+      console.log(`🔍 Fetching chats for session: ${currentSessionId}`);
+      
       const params = new URLSearchParams({
         page: chatsPage.toString(),
         limit: '1000'
@@ -299,7 +311,9 @@ export default function Dashboard() {
         throw new Error(`Failed to fetch chats: ${response.statusText}`);
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log(`✅ Chats fetched: ${data.chats?.length || 0} items`);
+      return data;
     },
     enabled: !!currentSessionId,
     retry: (failureCount, error: any) => {
@@ -498,6 +512,15 @@ export default function Dashboard() {
   
   // Extract groups from paginated response
   const groups = groupsResponse?.groups || [];
+
+  // Debug logging for query states (after all variables are declared)
+  useEffect(() => {
+    console.log('📊 Query States:');
+    console.log('  - Chats loading:', chatsLoading, 'Data:', chats.length);
+    console.log('  - Contacts loading:', contactsLoading, 'Data:', allContacts.length);
+    console.log('  - Groups loading:', groupsLoading, 'Data:', groups.length);
+    console.log('  - Current session enabled:', !!currentSessionId);
+  }, [chatsLoading, chats.length, contactsLoading, allContacts.length, groupsLoading, groups.length, currentSessionId]);
 
   // ⚡ Efficient bulk campaigns with conditional refresh
   const { data: bulkCampaigns = [], isLoading: campaignsLoading } = useQuery<BulkCampaign[]>({
