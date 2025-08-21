@@ -329,14 +329,14 @@ export default function Dashboard() {
 
   // Additional effect to re-fetch contacts when sessionInfo becomes available
   useEffect(() => {
-    if (sessionInfo && sessionInfo.name && sessionInfo.number) {
+    if (sessionInfo && sessionInfo.name && sessionInfo.loginTime) {
       // Session is now fully available - invalidate contacts to ensure full list loads
       console.log('📱 Session fully established, refreshing contacts...');
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['contacts'] });
       }, 100);
     }
-  }, [sessionInfo?.name, sessionInfo?.number, queryClient]); // Watch for actual session data
+  }, [sessionInfo?.name, sessionInfo?.loginTime, queryClient]); // Watch for actual session data
 
   // Handle contacts pagination response with progressive loading
   useEffect(() => {
@@ -565,9 +565,21 @@ export default function Dashboard() {
           break;
         case 'disconnected':
         case 'logout':
-          // Invalidate all session-related queries
+          // Clear all data immediately when user logs out
+          console.log('🚪 User logged out, clearing all data...');
+          queryClient.setQueryData(['/api/session-info'], null);
+          queryClient.setQueryData(['/api/chats'], []);
+          queryClient.setQueryData(['/api/groups'], []);
+          
+          // Clear contacts pagination data
+          setAllContacts([]);
+          setContactsPage(1);
+          setContactsSearch('');
+          
+          // Invalidate to refresh UI state
           queryClient.invalidateQueries({ queryKey: ['/api/session-info'] });
           queryClient.invalidateQueries({ queryKey: ['/api/get-qr'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
           break;
         case 'chats_updated':
           // Update chats cache with real-time data or invalidate for fresh fetch
@@ -636,11 +648,32 @@ export default function Dashboard() {
           }
           break;
         case 'account_disconnected':
-          // Handle account disconnection
+          // Clear all data when account disconnects
+          console.log('📱 Account disconnected, clearing all data...');
+          queryClient.setQueryData(['/api/session-info'], null);
+          queryClient.setQueryData(['/api/chats'], []);
+          queryClient.setQueryData(['/api/groups'], []);
+          
+          // Clear contacts pagination data
+          setAllContacts([]);
+          setContactsPage(1);
+          setContactsSearch('');
+          
           queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
           break;
         case 'account_removed':
-          // Handle account removal
+          // Clear all data immediately when account is deleted
+          console.log('🗑️ Account removed, clearing all data...');
+          queryClient.setQueryData(['/api/session-info'], null);
+          queryClient.setQueryData(['/api/chats'], []);
+          queryClient.setQueryData(['/api/groups'], []);
+          
+          // Clear contacts pagination data
+          setAllContacts([]);
+          setContactsPage(1);
+          setContactsSearch('');
+          
+          // Update accounts list and remove QR codes
           queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
           if (message.data?.sessionId) {
             setAccountQRCodes(prev => {
